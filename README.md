@@ -37,10 +37,39 @@ npm run start:prod
 ```
 > Backend akan berjalan di port **3008** (http://localhost:3008)
 
+### 2.1 Setup Auto-Start (Rekomendasi Produksi)
+Agar aplikasi **otomatis menyala** saat server restart/mati lampu, gunakan **PM2**.
+
+1. **Install PM2 di server:**
+   ```bash
+   npm install -g pm2
+   ```
+
+2. **Jalankan Backend dengan PM2:**
+   ```bash
+   cd be
+   pm2 start dist/main.js --name "mikrotik-be"
+   ```
+
+3. **Jalankan Frontend dengan PM2 (serve):**
+   ```bash
+   # Kita perlu serve build statis frontend
+   cd ../fe
+   npm run build
+   npx pm2 serve dist 8081 --spa --name "mikrotik-fe"
+   ```
+
+4. **Simpan agar jalan saat Booting:**
+   ```bash
+   pm2 save
+   pm2 startup
+   # Copy paste command yang muncul di layar terminal setelah 'pm2 startup'
+   ```
+
 ---
 
-### 3. Setup Frontend (`fe`)
-Frontend adalah tampilan web untuk monitoring.
+### 3. Setup Frontend (Mode Dev / Manual)
+Jika tidak menggunakan PM2, gunakan cara ini untuk menjalankan Frontend.
 
 ```bash
 # Buka terminal BARU (jangan matikan terminal backend)
