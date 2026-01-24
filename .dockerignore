@@ -1,0 +1,8 @@
+.git
+node_modules
+dist
+.env
+**/node_modules
+**/dist
+**/prisma/*.db
+**/prisma/*.db-journal

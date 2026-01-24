@@ -1,0 +1,61 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Router {
+  id            String  @id @default(uuid())
+  name          String
+  host          String
+  port          Int     @default(8728)
+  username      String
+  password      String
+  isActive      Boolean @default(true)
+  isolirProfile String? // Profile name to use when isolating users
+
+  // Telegram Notification Config per Router
+  telegramBotToken String?
+  telegramChatId   String?
+
+  lastSync DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  pppUsers  PPPUser[]
+}
+
+// Track PPP users with accumulated usage
+model PPPUser {
+  id                 String         @id @default(uuid())
+  routerId           String
+  secretName         String
+  comment            String?
+  originalProfile    String? // Stores the original profile before isolation
+  accumulatedTxBytes BigInt         @default(0)
+  accumulatedRxBytes BigInt         @default(0)
+  currentTxBytes     BigInt         @default(0)
+  currentRxBytes     BigInt         @default(0)
+  lastSeenOnline     DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  router             Router         @relation(fields: [routerId], references: [id], onDelete: Cascade)
+  usageHistory       UsageHistory[]
+
+  @@unique([routerId, secretName])
+}
+
+// History of each session's usage (saved when user disconnects)
+model UsageHistory {
+  id         String   @id @default(uuid())
+  pppUserId  String
+  txBytes    BigInt
+  rxBytes    BigInt
+  sessionEnd DateTime @default(now())
+  pppUser    PPPUser  @relation(fields: [pppUserId], references: [id], onDelete: Cascade)
+}
