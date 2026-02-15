@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MikrotikService, MikrotikConfig } from '../mikrotik/mikrotik.service';
 import { UsageTrackingService } from '../usage/usage-tracking.service';
@@ -11,31 +11,35 @@ export class RouterService {
         private usageTracking: UsageTrackingService
     ) { }
 
-    async getRouters() {
-        console.log('Fetching all routers from DB...');
+    async getRouters(userId: string) {
+        console.log(`Fetching routers for user ${userId}...`);
         return this.prisma.router.findMany({
+            where: { userId },
             orderBy: { name: 'asc' },
         });
     }
 
-    async getRouter(id: string) {
+    async getRouter(id: string, userId: string) {
         const router = await this.prisma.router.findUnique({
             where: { id },
         });
         if (!router) throw new NotFoundException('Router not found');
+        if (router.userId !== userId) throw new ForbiddenException('Akses ditolak: router bukan milik Anda');
         return router;
     }
 
-    async createRouter(data: any) {
+    async createRouter(data: any, userId: string) {
         return this.prisma.router.create({
             data: {
                 ...data,
                 port: parseInt(data.port),
+                userId,
             },
         });
     }
 
-    async updateRouter(id: string, data: any) {
+    async updateRouter(id: string, data: any, userId: string) {
+        await this.getRouter(id, userId); // validates ownership
         return this.prisma.router.update({
             where: { id },
             data: {
@@ -45,14 +49,15 @@ export class RouterService {
         });
     }
 
-    async deleteRouter(id: string) {
+    async deleteRouter(id: string, userId: string) {
+        await this.getRouter(id, userId); // validates ownership
         return this.prisma.router.delete({
             where: { id },
         });
     }
 
-    async testConnection(id: string) {
-        const router = await this.getRouter(id);
+    async testConnection(id: string, userId: string) {
+        const router = await this.getRouter(id, userId);
         const config: MikrotikConfig = {
             host: router.host,
             port: router.port,
@@ -62,8 +67,8 @@ export class RouterService {
         return this.mikrotik.testConnection(config);
     }
 
-    async syncRouter(id: string) {
-        const router = await this.getRouter(id);
+    async syncRouter(id: string, userId?: string) {
+        const router = userId ? await this.getRouter(id, userId) : await this.prisma.router.findUniqueOrThrow({ where: { id } });
         const config: MikrotikConfig = {
             host: router.host,
             port: router.port,
@@ -81,8 +86,8 @@ export class RouterService {
         });
     }
 
-    async getPPPProfiles(id: string) {
-        const router = await this.getRouter(id);
+    async getPPPProfiles(id: string, userId: string) {
+        const router = await this.getRouter(id, userId);
         const config: MikrotikConfig = {
             host: router.host,
             port: router.port,
@@ -105,8 +110,8 @@ export class RouterService {
         }
     }
 
-    async getPPPUsers(id: string) {
-        const router = await this.getRouter(id);
+    async getPPPUsers(id: string, userId: string) {
+        const router = await this.getRouter(id, userId);
 
         // 1. Try to get from Cache first (MOST IMPORTANT FOR SPEED)
         let pppUsers = this.usageTracking.getCachedRouterData(id);
@@ -205,8 +210,8 @@ export class RouterService {
         });
     }
 
-    async updatePPPComment(id: string, secretName: string, comment: string, pppId?: string) {
-        const router = await this.getRouter(id);
+    async updatePPPComment(id: string, secretName: string, comment: string, userId: string, pppId?: string) {
+        const router = await this.getRouter(id, userId);
         const config: MikrotikConfig = {
             host: router.host,
             port: router.port,
@@ -235,8 +240,8 @@ export class RouterService {
         return success;
     }
 
-    async toggleIsolateUser(routerId: string, secretName: string, pppId?: string) {
-        const router = await this.getRouter(routerId);
+    async toggleIsolateUser(routerId: string, secretName: string, userId: string, pppId?: string) {
+        const router = await this.getRouter(routerId, userId);
 
         if (!router.isolirProfile) {
             throw new Error('Router Settings: Isolir Profile not configured!');
@@ -305,15 +310,51 @@ export class RouterService {
 
             // KILL Active Connection to force reconnect with new profile
             try {
-                const activeConnections = await api.menu('/ppp/active').print();
-                const active = activeConnections.find((a: any) => a.name === secretName);
+                // Step 1: Get ALL active connections
+                const allActive = await api.menu('/ppp/active').print();
 
-                if (active) {
-                    console.log(`[KILL] Removing active connection for ${secretName}`);
-                    await api.menu('/ppp/active').remove(active['.id']);
+                // Step 2: Filter MANUALLY by exact name match (safest approach)
+                const matchedConnections = (allActive || []).filter(
+                    (a: any) => a.name === secretName
+                );
+
+                if (matchedConnections.length === 0) {
+                    console.log(`[KILL] No active connection found for ${secretName}, skipping.`);
+                } else {
+                    console.log(`[KILL] Found ${matchedConnections.length} active connection(s) for ${secretName}`);
+
+                    // Step 3: Remove ONLY matched connections
+                    for (const conn of matchedConnections) {
+                        // Debug: log actual object keys to find where ID is stored
+                        console.log(`[KILL] Connection object keys:`, Object.keys(conn));
+                        console.log(`[KILL] Connection data:`, JSON.stringify(conn));
+
+                        // Try multiple possible ID key names
+                        const connId = conn['.id'] || conn['id'] || conn['$$id'] || conn['number'];
+
+                        if (connId) {
+                            console.log(`[KILL] Removing connection id=${connId} name=${conn.name}`);
+                            try {
+                                await api.menu('/ppp/active').where('.id', connId).remove();
+                                console.log(`[KILL] Successfully removed ${connId}`);
+                            } catch (removeErr: any) {
+                                // Fallback: try remove with just the number ID
+                                console.warn(`[KILL] .where(.id) failed, trying direct remove...`);
+                                try {
+                                    const activeMenu = api.menu('/ppp/active');
+                                    await activeMenu.remove(connId);
+                                    console.log(`[KILL] Direct remove succeeded for ${connId}`);
+                                } catch (directErr: any) {
+                                    console.warn(`[KILL] Direct remove also failed:`, directErr?.message);
+                                }
+                            }
+                        } else {
+                            console.warn(`[KILL] Could not find ID for connection: ${conn.name}. Skipping remove.`);
+                        }
+                    }
                 }
-            } catch (killErr) {
-                console.warn('Failed to kill active connection:', killErr);
+            } catch (killErr: any) {
+                console.warn(`[KILL] Error for ${secretName}:`, killErr?.message || killErr);
             }
 
             await client.close();
@@ -330,9 +371,8 @@ export class RouterService {
         }
     }
 
-    async createPPPUser(routerId: string, data: any) {
-        const router = await this.prisma.router.findUnique({ where: { id: routerId } });
-        if (!router) throw new NotFoundException('Router not found');
+    async createPPPUser(routerId: string, data: any, userId: string) {
+        const router = await this.getRouter(routerId, userId);
 
         const config: MikrotikConfig = {
             host: router.host,

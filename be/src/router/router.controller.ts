@@ -10,55 +10,57 @@ import {
 import { RouterService } from './router.service';
 import { CreateRouterDto, UpdateRouterDto } from './dto/router.dto';
 import { CreatePPPSecretDto } from './dto/ppp-secret.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthUserProfile } from '../auth/types/auth.types';
 
 @Controller('routers')
 export class RouterController {
     constructor(private readonly routerService: RouterService) { }
 
     @Get()
-    findAll() {
-        return this.routerService.getRouters();
+    findAll(@CurrentUser() user: AuthUserProfile) {
+        return this.routerService.getRouters(user.id);
     }
 
     @Get(':id')
-    findOne(@Param('id') id: string) {
-        return this.routerService.getRouter(id);
+    findOne(@Param('id') id: string, @CurrentUser() user: AuthUserProfile) {
+        return this.routerService.getRouter(id, user.id);
     }
 
     @Post()
-    create(@Body() dto: CreateRouterDto) {
-        return this.routerService.createRouter(dto);
+    create(@Body() dto: CreateRouterDto, @CurrentUser() user: AuthUserProfile) {
+        return this.routerService.createRouter(dto, user.id);
     }
 
     @Put(':id')
-    update(@Param('id') id: string, @Body() dto: UpdateRouterDto) {
-        return this.routerService.updateRouter(id, dto);
+    update(@Param('id') id: string, @Body() dto: UpdateRouterDto, @CurrentUser() user: AuthUserProfile) {
+        return this.routerService.updateRouter(id, dto, user.id);
     }
 
     @Delete(':id')
-    remove(@Param('id') id: string) {
-        return this.routerService.deleteRouter(id);
+    remove(@Param('id') id: string, @CurrentUser() user: AuthUserProfile) {
+        return this.routerService.deleteRouter(id, user.id);
     }
 
     @Post(':id/test')
-    testConnection(@Param('id') id: string) {
-        return this.routerService.testConnection(id);
+    testConnection(@Param('id') id: string, @CurrentUser() user: AuthUserProfile) {
+        return this.routerService.testConnection(id, user.id);
     }
 
     @Post(':id/sync')
-    syncRouter(@Param('id') id: string) {
-        return this.routerService.syncRouter(id);
+    syncRouter(@Param('id') id: string, @CurrentUser() user: AuthUserProfile) {
+        return this.routerService.syncRouter(id, user.id);
     }
 
     @Get(':id/profiles')
-    getProfiles(@Param('id') id: string) {
-        return this.routerService.getPPPProfiles(id);
+    getProfiles(@Param('id') id: string, @CurrentUser() user: AuthUserProfile) {
+        return this.routerService.getPPPProfiles(id, user.id);
     }
 
     @Get(':id/ppp')
-    getPPPUsers(@Param('id') id: string) {
+    getPPPUsers(@Param('id') id: string, @CurrentUser() user: AuthUserProfile) {
         console.log(`[GET] PPP Users for router: ${id}`);
-        return this.routerService.getPPPUsers(id);
+        return this.routerService.getPPPUsers(id, user.id);
     }
 
     @Post(':id/ppp/:name/comment')
@@ -66,25 +68,28 @@ export class RouterController {
         @Param('id') id: string,
         @Param('name') name: string,
         @Body('comment') comment: string,
+        @CurrentUser() user: AuthUserProfile,
         @Body('pppId') pppId?: string
     ) {
-        return this.routerService.updatePPPComment(id, name, comment, pppId);
+        return this.routerService.updatePPPComment(id, name, comment, user.id, pppId);
     }
 
     @Post(':id/ppp/:name/isolate')
     toggleIsolate(
         @Param('id') id: string,
         @Param('name') name: string,
+        @CurrentUser() user: AuthUserProfile,
         @Body('pppId') pppId?: string
     ) {
-        return this.routerService.toggleIsolateUser(id, name, pppId);
+        return this.routerService.toggleIsolateUser(id, name, user.id, pppId);
     }
 
     @Post(':id/ppp')
     createPPPUser(
         @Param('id') id: string,
-        @Body() dto: CreatePPPSecretDto
+        @Body() dto: CreatePPPSecretDto,
+        @CurrentUser() user: AuthUserProfile,
     ) {
-        return this.routerService.createPPPUser(id, dto);
+        return this.routerService.createPPPUser(id, dto, user.id);
     }
 }

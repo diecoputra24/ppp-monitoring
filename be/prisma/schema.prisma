@@ -19,6 +19,10 @@ model Router {
   isActive      Boolean @default(true)
   isolirProfile String? // Profile name to use when isolating users
 
+  // Owner - each router belongs to a user
+  userId String
+  owner  user   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Telegram Notification Config per Router
   telegramBotToken String?
   telegramChatId   String?
@@ -58,4 +62,60 @@ model UsageHistory {
   rxBytes    BigInt
   sessionEnd DateTime @default(now())
   pppUser    PPPUser  @relation(fields: [pppUserId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// BetterAuth Models
+// ============================================================
+
+model user {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  role          String?   @default("user")
+  sessions      session[]
+  accounts      account[]
+  routers       Router[]
+}
+
+model session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
 }

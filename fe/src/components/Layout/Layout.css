@@ -24,6 +24,12 @@
     justify-content: space-between;
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .header-brand {
     display: flex;
     align-items: center;

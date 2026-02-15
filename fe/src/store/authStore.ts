@@ -1,0 +1,149 @@
+import { create } from 'zustand';
+import { authApi, type AuthUser, type SignInPayload, type SignUpPayload, type ChangePasswordPayload } from '../api/auth';
+import { api } from '../api';
+import { toast } from './toastStore';
+
+const TOKEN_KEY = 'auth_token';
+const USER_KEY = 'auth_user';
+
+interface AuthState {
+    user: AuthUser | null;
+    token: string | null;
+    isAuthenticated: boolean;
+    loading: boolean;
+
+    // Actions
+    signIn: (payload: SignInPayload) => Promise<void>;
+    signUp: (payload: SignUpPayload) => Promise<void>;
+    signOut: () => Promise<void>;
+    changePassword: (payload: ChangePasswordPayload) => Promise<void>;
+    updateProfile: (name: string, email: string) => void;
+    initAuth: () => void;
+}
+
+function saveAuth(token: string, user: AuthUser) {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+function clearAuth() {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+}
+
+function loadAuth(): { token: string | null; user: AuthUser | null } {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const userStr = localStorage.getItem(USER_KEY);
+    let user: AuthUser | null = null;
+    if (userStr) {
+        try { user = JSON.parse(userStr); } catch { /* ignore */ }
+    }
+    return { token, user };
+}
+
+export const useAuthStore = create<AuthState>((set, get) => ({
+    user: null,
+    token: null,
+    isAuthenticated: false,
+    loading: false,
+
+    initAuth: () => {
+        const { token, user } = loadAuth();
+        if (token && user) {
+            // Set axios default header
+            api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            set({ token, user, isAuthenticated: true });
+        }
+    },
+
+    signIn: async (payload) => {
+        set({ loading: true });
+        try {
+            const res = await authApi.signIn(payload);
+            const { user, tokens } = res.data.data;
+
+            saveAuth(tokens.accessToken, user);
+            api.defaults.headers.common['Authorization'] = `Bearer ${tokens.accessToken}`;
+            set({ user, token: tokens.accessToken, isAuthenticated: true, loading: false });
+            toast.success(`Selamat datang, ${user.name}!`);
+        } catch (error: any) {
+            set({ loading: false });
+            const msg = error.response?.data?.message
+                || error.response?.data?.errors?.[0]?.message
+                || 'Login gagal';
+            toast.error(msg);
+            throw error;
+        }
+    },
+
+    signUp: async (payload) => {
+        set({ loading: true });
+        try {
+            const res = await authApi.signUp(payload);
+            const { user, tokens } = res.data.data;
+
+            saveAuth(tokens.accessToken, user);
+            api.defaults.headers.common['Authorization'] = `Bearer ${tokens.accessToken}`;
+            set({ user, token: tokens.accessToken, isAuthenticated: true, loading: false });
+            toast.success(`Akun berhasil dibuat. Selamat datang, ${user.name}!`);
+        } catch (error: any) {
+            set({ loading: false });
+            const msg = error.response?.data?.message
+                || error.response?.data?.errors?.[0]?.message
+                || 'Registrasi gagal';
+            toast.error(msg);
+            throw error;
+        }
+    },
+
+    signOut: async () => {
+        try {
+            await authApi.signOut();
+        } catch { /* ignore */ }
+        delete api.defaults.headers.common['Authorization'];
+        clearAuth();
+        set({ user: null, token: null, isAuthenticated: false });
+        toast.success('Berhasil logout');
+    },
+
+    changePassword: async (payload) => {
+        set({ loading: true });
+        try {
+            await authApi.changePassword(payload);
+            set({ loading: false });
+            toast.success('Password berhasil diubah');
+        } catch (error: any) {
+            set({ loading: false });
+            const msg = error.response?.data?.message
+                || error.response?.data?.errors?.[0]?.message
+                || 'Gagal mengubah password';
+            toast.error(msg);
+            throw error;
+        }
+    },
+
+    updateProfile: (name, email) => {
+        const { user } = get();
+        if (user) {
+            const updated = { ...user, name, email };
+            set({ user: updated });
+            localStorage.setItem(USER_KEY, JSON.stringify(updated));
+        }
+    },
+}));
+
+// Axios interceptor: redirect to login on 401
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401 && useAuthStore.getState().isAuthenticated) {
+            // Token expired or invalid
+            const currentPath = window.location.pathname;
+            if (currentPath !== '/login' && currentPath !== '/register') {
+                useAuthStore.getState().signOut();
+                toast.error('Sesi telah berakhir, silakan login kembali');
+            }
+        }
+        return Promise.reject(error);
+    }
+);

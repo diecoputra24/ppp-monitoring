@@ -4,6 +4,7 @@ import { useRouterStore } from '../../store/routerStore';
 import { RouterCard } from '../RouterCard';
 import { RouterFormModal } from '../RouterFormModal';
 import { PPPUserTable } from '../PPPUserTable';
+import { ProfileDropdown } from '../Auth';
 import './Layout.css';
 
 export function Layout() {
@@ -73,6 +74,7 @@ export function Layout() {
                                 <span className="slider-icon sun"><Sun size={12} /></span>
                             </span>
                         </label>
+                        <ProfileDropdown />
                     </div>
                 </div>
             </header>

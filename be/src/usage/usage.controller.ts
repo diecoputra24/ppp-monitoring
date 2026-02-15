@@ -1,5 +1,7 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { UsageTrackingService } from './usage-tracking.service';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthUserProfile } from '../auth/types/auth.types';
 
 @Controller('usage')
 export class UsageController {
@@ -9,7 +11,11 @@ export class UsageController {
      * Get all usage data for a router
      */
     @Get('router/:routerId')
-    async getRouterUsage(@Param('routerId') routerId: string) {
+    async getRouterUsage(
+        @Param('routerId') routerId: string,
+        @CurrentUser() _user: AuthUserProfile,
+    ) {
+        // TODO: validate router ownership via routerService
         return this.usageTrackingService.getRouterUsage(routerId);
     }
 
@@ -20,7 +26,9 @@ export class UsageController {
     async getUserUsage(
         @Param('routerId') routerId: string,
         @Param('secretName') secretName: string,
+        @CurrentUser() _user: AuthUserProfile,
     ) {
+        // TODO: validate router ownership via routerService
         const usage = await this.usageTrackingService.getUsageSummary(routerId, secretName);
         if (!usage) {
             return { message: 'No usage data found' };

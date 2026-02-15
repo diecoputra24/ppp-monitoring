@@ -81,7 +81,7 @@ export function RouterFormModal({ isOpen, onClose, editData }: RouterFormModalPr
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="modal-overlay" onClick={onClose} style={{ zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'none' }}>
+        <div className="modal-overlay" style={{ zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'none' }}>
             <div className="modal simple-router-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header-simple">
                     <div className="modal-title-simple">
