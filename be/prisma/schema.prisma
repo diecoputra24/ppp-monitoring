@@ -45,6 +45,7 @@ model PPPUser {
   accumulatedRxBytes BigInt         @default(0)
   currentTxBytes     BigInt         @default(0)
   currentRxBytes     BigInt         @default(0)
+  isOnline           Boolean        @default(false)
   lastSeenOnline     DateTime?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt

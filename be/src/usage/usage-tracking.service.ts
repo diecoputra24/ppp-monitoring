@@ -28,6 +28,28 @@ export class UsageTrackingService implements OnModuleInit {
 
     async onModuleInit() {
         console.log('UsageTrackingService initialized. Scheduler will run every 30s.');
+        await this.loadOnlineUsersFromDB();
+    }
+
+    private async loadOnlineUsersFromDB() {
+        try {
+            const onlineUsers = await this.prisma.pPPUser.findMany({
+                where: { isOnline: true }
+            });
+            console.log(`[INIT] Loading ${onlineUsers.length} online users from DB into cache...`);
+            for (const user of onlineUsers) {
+                const cacheKey = `${user.routerId}:${user.secretName}`;
+                this.onlineUsersCache.set(cacheKey, {
+                    secretName: user.secretName,
+                    routerId: user.routerId,
+                    txBytes: user.currentTxBytes, // Might be stale but okay for identifying "was online"
+                    rxBytes: user.currentRxBytes,
+                    lastUpdate: user.lastSeenOnline || new Date(),
+                });
+            }
+        } catch (error) {
+            console.error('[INIT] Failed to load online users:', error);
+        }
     }
 
     private isSyncing = false;
@@ -186,6 +208,7 @@ export class UsageTrackingService implements OnModuleInit {
                         accumulatedRxBytes: newAccumulatedRx,
                         currentTxBytes: user.isOnline ? currentTx : undefined,
                         currentRxBytes: user.isOnline ? currentRx : undefined,
+                        isOnline: user.isOnline,
                     };
 
                     const createData = {
@@ -197,6 +220,7 @@ export class UsageTrackingService implements OnModuleInit {
                         currentTxBytes: currentTx,
                         currentRxBytes: currentRx,
                         lastSeenOnline: user.isOnline ? new Date() : null,
+                        isOnline: user.isOnline,
                     };
 
                     // Add to transaction batch
