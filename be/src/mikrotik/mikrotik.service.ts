@@ -108,36 +108,95 @@ export class MikrotikService {
         const client = this.createClient(config);
         const start = Date.now();
         try {
-            console.log(`Fetching PPP Status from ${config.host}...`);
+            console.log(`[MIKROTIK] Fetching PPP Status from ${config.host}...`);
             const api: any = await client.connect();
 
-            const [secrets, active, interfaces] = await Promise.all([
-                api.menu('/ppp/secret').print(),
-                api.menu('/ppp/active').print(),
-                api.menu('/interface').print(),
-            ]);
+            // Execute sequentially to avoid race conditions/timeouts in client
+            const secrets = await api.menu('/ppp/secret').print();
+            const active = await api.menu('/ppp/active').print();
+            const interfaces = await api.menu('/interface').print();
 
             await client.close();
-            console.log(`Fetch completed in ${Date.now() - start}ms`);
+            console.log(`[MIKROTIK] Fetch completed in ${Date.now() - start}ms. Active sessions found: ${active ? active.length : 0}`);
 
-            const activeMap = new Map((active || []).map((a: PPPActive) => [a.name, a]));
+            // Ensure active is an array before mapping
+            const safeActive = Array.isArray(active) ? active : [];
+            const safeInterfaces = Array.isArray(interfaces) ? interfaces : [];
+            const safeSecrets = Array.isArray(secrets) ? secrets : [];
+
+            // DEBUG: Print first active session structure to verify 'name' field
+            if (safeActive.length > 0) {
+                // console.log('[DEBUG] First active session:', JSON.stringify(safeActive[0]));
+            }
+
+            const activeMap = new Map();
+            safeActive.forEach((a: any) => {
+                if (a.name) activeMap.set(a.name, a);
+            });
+
             const interfaceBytesMap = new Map<string, { txBytes: bigint; rxBytes: bigint; txRate: bigint; rxRate: bigint }>();
 
-            for (const iface of interfaces || []) {
-                const match = (iface.name as string).match(/^<?(pppoe|pptp|l2tp|sstp|ovpn)-(.+?)>?$/);
-                if (match) {
-                    interfaceBytesMap.set(match[2], {
-                        txBytes: BigInt(iface.rxByte || '0'),
-                        rxBytes: BigInt(iface.txByte || '0'),
+            for (const iface of safeInterfaces) {
+                // Adjust regex to match your interface naming convention
+                // Default Mikrotik PPP interface usually format: <pppoe-username>
+                // But some configs use explicit names. We try to match widespread patterns.
+                const name = iface.name as string;
+                if (!name) continue;
+
+                // Pattern 1: <pppoe-username>
+                const match1 = name.match(/^<pppoe-(.+?)>$/);
+                // Pattern 2: pppoe-username (without brackets)
+                const match2 = name.match(/^pppoe-(.+?)$/);
+                // Pattern 3: simply username (rare but possible if manually named)
+
+                let username = '';
+                if (match1) username = match1[1];
+                else if (match2) username = match2[1];
+
+                // Fallback: Check if interface name matches a secret user directly (sometimes happens)
+                if (!username && activeMap.has(name)) {
+                    username = name;
+                }
+
+                if (username) {
+                    interfaceBytesMap.set(username, {
+                        txBytes: BigInt(iface['rx-byte'] || iface.rxByte || '0'), // Swap logic might be needed depending on perspective
+                        rxBytes: BigInt(iface['tx-byte'] || iface.txByte || '0'),
                         txRate: BigInt(iface['rx-bits-per-second'] || '0'),
                         rxRate: BigInt(iface['tx-bits-per-second'] || '0'),
                     });
                 }
+
+                // Also map by direct interface name (for <ovpn-user>, <l2tp-user> etc)
+                // interfaceBytesMap.set(name, ...); // Can add if needed
             }
 
-            const users: PPPUserStatus[] = (secrets || []).map((secret: PPPSecret) => {
-                const activeSession = activeMap.get(secret.name) as PPPActive | undefined;
-                const interfaceBytes = interfaceBytesMap.get(secret.name);
+            const users: PPPUserStatus[] = safeSecrets.map((secret: any) => {
+                const activeSession = activeMap.get(secret.name);
+
+                // Try to find traffic data using secret name
+                // Note: Mikrotik interface name for PPP is usually <pppoe-NAME>
+                let interfaceBytes = interfaceBytesMap.get(secret.name);
+
+                // If not found, try searching interface map for <pppoe-NAME> format manually
+                if (!interfaceBytes) {
+                    const pppoeName1 = `<pppoe-${secret.name}>`;
+                    const pppoeName2 = `pppoe-${secret.name}`;
+
+                    // Optimization needed here if interface list is huge, but fine for now
+                    const iface1 = safeInterfaces.find((i: any) => i.name === pppoeName1);
+                    const iface2 = safeInterfaces.find((i: any) => i.name === pppoeName2);
+                    const targetIface = iface1 || iface2;
+
+                    if (targetIface) {
+                        interfaceBytes = {
+                            txBytes: BigInt(targetIface['rx-byte'] || targetIface.rxByte || '0'),
+                            rxBytes: BigInt(targetIface['tx-byte'] || targetIface.txByte || '0'),
+                            txRate: BigInt(targetIface['rx-bits-per-second'] || '0'),
+                            rxRate: BigInt(targetIface['tx-bits-per-second'] || '0'),
+                        };
+                    }
+                }
 
                 return {
                     id: secret['.id'],
@@ -156,9 +215,9 @@ export class MikrotikService {
                 };
             });
 
-            return { secrets: secrets || [], active: active || [], users };
+            return { secrets: safeSecrets, active: safeActive, users };
         } catch (error) {
-            console.error(`Error fetching PPP status from ${config.host}:`, error.message);
+            console.error(`[MIKROTIK] Error fetching PPP status from ${config.host}:`, error.message);
             try { await client.close(); } catch (e) { }
             return { secrets: [], active: [], users: [] };
         }
