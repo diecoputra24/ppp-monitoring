@@ -18,6 +18,8 @@ export interface Router {
     password: string;
     isActive: boolean;
     isolirProfile?: string;
+    telegramBotToken?: string;
+    telegramChatId?: string;
     lastSync: string | null;
     createdAt: string;
     updatedAt: string;
@@ -71,6 +73,8 @@ export interface UpdateRouterDto {
     password?: string;
     isActive?: boolean;
     isolirProfile?: string;
+    telegramBotToken?: string;
+    telegramChatId?: string;
 }
 
 export const routerApi = {

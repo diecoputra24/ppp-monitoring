@@ -21,8 +21,9 @@ Pastikan sudah terinstall:
     -   Sebelum menggunakan tombol isolir, **wajib** mengisi nama profil isolir terlebih dahulu di pengaturan.
     -   Jika baru saja mengisi/mengupdate profil isolir, **silakan refresh halaman** browser Anda agar perubahan terbaca.
 2.  **Telegram**:
-    -   Saat ini masih terdapat *bug* pada fitur bot Telegram.
-    -   **Jangan gunakan** fitur Telegram untuk sementara waktu.
+    -   Bot akan mengirimkan laporan **HANYA** jika ada aktivitas user Login atau Logout.
+    -   Jika tidak ada perubahan status user, bot tidak akan mengirim pesan apapun (Silent).
+    -   Pastikan Token dan Chat ID sudah benar.
 
 ---
 
