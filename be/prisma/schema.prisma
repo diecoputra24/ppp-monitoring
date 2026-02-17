@@ -20,8 +20,8 @@ model Router {
   isolirProfile String? // Profile name to use when isolating users
 
   // Owner - each router belongs to a user
-  userId String
-  owner  user   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String?
+  owner  user?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Telegram Notification Config per Router
   telegramBotToken String?
