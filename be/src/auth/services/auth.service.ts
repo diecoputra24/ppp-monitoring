@@ -11,10 +11,11 @@
  * - New auth methods can be added without modifying existing ones
  */
 
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger, NotFoundException } from '@nestjs/common';
 import { BetterAuthEngineService } from './better-auth-engine.service';
 import { CsrfService } from './csrf.service';
 import { TokenManagerService } from './token-manager.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import type {
     SignInPayload,
     SignUpPayload,
@@ -31,6 +32,7 @@ export class AuthService {
         private readonly authEngine: BetterAuthEngineService,
         private readonly csrfService: CsrfService,
         private readonly tokenManager: TokenManagerService,
+        private readonly prisma: PrismaService,
     ) { }
 
     /**
@@ -99,9 +101,29 @@ export class AuthService {
     async getSession(headers: Headers): Promise<SessionResponse> {
         const session = await this.authEngine.getSession(headers);
         if (!session) {
-            throw new UnauthorizedException('Session tidak valid atau telah kedaluwarsa');
+            // throw new UnauthorizedException('Session tidak valid atau telah kedaluwarsa');
+            // Return null instead of throwing to allow public access if needed, or handle in guard
+            return null as any;
         }
         return session;
+    }
+
+    /**
+     * Retrieves user by ID for refreshing session data.
+     */
+    async getUserById(id: string) {
+        const user = await this.prisma.user.findUnique({
+            where: { id },
+        });
+
+        if (!user) {
+            throw new NotFoundException('User tidak ditemukan');
+        }
+
+        // Log fetched role for debugging
+        this.logger.debug(`Fetching fresh user data for ${user.email}, Role from DB: ${user.role}`);
+
+        return user;
     }
 
     /**
@@ -137,6 +159,23 @@ export class AuthService {
 
         await this.authEngine.changePassword(userId, currentPassword, newPassword);
         this.logger.log(`Password changed for user ${userId}`);
+    }
+
+    /**
+     * Updates the authenticated user's profile.
+     */
+    async updateProfile(
+        userId: string,
+        data: { name: string },
+        csrfToken: string | undefined,
+    ): Promise<AuthResponse['user']> {
+        if (csrfToken) {
+            this.validateCsrf(csrfToken);
+        }
+
+        const updatedUser = await this.authEngine.updateProfile(userId, data);
+        this.logger.log(`Profile updated for user ${userId}`);
+        return updatedUser;
     }
 
     // ============================================================

@@ -17,8 +17,9 @@ interface AuthState {
     signUp: (payload: SignUpPayload) => Promise<void>;
     signOut: () => Promise<void>;
     changePassword: (payload: ChangePasswordPayload) => Promise<void>;
-    updateProfile: (name: string, email: string) => void;
-    initAuth: () => void;
+    updateProfile: (name: string) => Promise<void>;
+    initAuth: () => Promise<void>; // Changed to Async
+    fetchUser: () => Promise<void>; // New action to refresh user data
 }
 
 function saveAuth(token: string, user: AuthUser) {
@@ -47,12 +48,38 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     isAuthenticated: false,
     loading: false,
 
-    initAuth: () => {
+    initAuth: async () => {
         const { token, user } = loadAuth();
         if (token && user) {
-            // Set axios default header
+            // Set axios default header immediately for subsequent calls
             api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             set({ token, user, isAuthenticated: true });
+
+            // Refresh user data from server to get latest role/changes
+            try {
+                await get().fetchUser();
+            } catch (error) {
+                // If token invalid, sign out
+                console.error("Session invalid", error);
+                // Optional: get().signOut(); 
+                // But usually axios interceptor handles 401
+            }
+        }
+    },
+
+    fetchUser: async () => {
+        try {
+            const res = await authApi.getMe();
+            const userData = res.data.data.user;
+            const { token } = get();
+
+            // Update state and local storage
+            set({ user: userData });
+            if (token) {
+                saveAuth(token, userData);
+            }
+        } catch (error) {
+            throw error;
         }
     },
 
@@ -103,7 +130,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         delete api.defaults.headers.common['Authorization'];
         clearAuth();
         set({ user: null, token: null, isAuthenticated: false });
-        toast.success('Berhasil logout');
+        // toast.success('Berhasil logout');
     },
 
     changePassword: async (payload) => {
@@ -122,12 +149,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
     },
 
-    updateProfile: (name, email) => {
-        const { user } = get();
-        if (user) {
-            const updated = { ...user, name, email };
-            set({ user: updated });
-            localStorage.setItem(USER_KEY, JSON.stringify(updated));
+    updateProfile: async (name) => {
+        set({ loading: true });
+        try {
+            const res = await authApi.updateProfile({ name });
+            const { user } = res.data.data;
+            const { token } = get();
+
+            if (token) {
+                saveAuth(token, user);
+            }
+
+            set({ user, loading: false });
+            toast.success('Profil berhasil diperbarui');
+        } catch (error: any) {
+            set({ loading: false });
+            const msg = error.response?.data?.message
+                || error.response?.data?.errors?.[0]?.message
+                || 'Gagal memperbarui profil';
+            toast.error(msg);
+            throw error;
         }
     },
 }));

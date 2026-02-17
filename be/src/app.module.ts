@@ -6,6 +6,7 @@ import { RouterModule } from './router/router.module';
 import { MikrotikModule } from './mikrotik/mikrotik.module';
 import { UsageModule } from './usage/usage.module';
 import { AuthModule } from './auth/auth.module';
+import { AdminModule } from './admin/admin.module';
 import { AuthGuard } from './auth/guards/auth.guard';
 import { CsrfGuard } from './auth/guards/csrf.guard';
 
@@ -17,6 +18,7 @@ import { CsrfGuard } from './auth/guards/csrf.guard';
     MikrotikModule,
     RouterModule,
     UsageModule,
+    AdminModule,
   ],
   providers: [
     // Apply AuthGuard globally - routes with @Public() bypass it

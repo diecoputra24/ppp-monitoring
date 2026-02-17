@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
-import { LogOut, Key, ChevronDown, Settings } from 'lucide-react';
+import { LogOut, Key, ChevronDown, Settings, Users } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { useUiStore } from '../../store/uiStore';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import { UpdateProfileModal } from './UpdateProfileModal';
 
 export function ProfileDropdown() {
     const { user, signOut } = useAuthStore();
+    const { setCurrentView } = useUiStore();
     const [isOpen, setIsOpen] = useState(false);
     const [showChangePw, setShowChangePw] = useState(false);
     const [showUpdateProfile, setShowUpdateProfile] = useState(false);
@@ -22,6 +24,15 @@ export function ProfileDropdown() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Close dropdown when pressing Escape
+    useEffect(() => {
+        function handleKeyDown(e: KeyboardEvent) {
+            if (e.key === 'Escape') setIsOpen(false);
+        }
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
     if (!user) return null;
 
     const initials = user.name
@@ -32,8 +43,8 @@ export function ProfileDropdown() {
         .slice(0, 2);
 
     return (
-        <>
-            <div className="profile-dropdown" ref={dropdownRef}>
+        <div style={{ position: 'relative' }} ref={dropdownRef}>
+            <div className="profile-dropdown">
                 <button
                     className="profile-trigger"
                     onClick={() => setIsOpen(!isOpen)}
@@ -53,12 +64,41 @@ export function ProfileDropdown() {
                                 {initials}
                             </div>
                             <div className="profile-menu-info">
-                                <span className="profile-menu-name">{user.name}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span className="profile-menu-name">{user.name}</span>
+                                    {/* Role Badge */}
+                                    <span style={{
+                                        fontSize: 10,
+                                        padding: '2px 6px',
+                                        borderRadius: 10,
+                                        background: user.role === 'admin' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(148, 163, 184, 0.2)',
+                                        color: user.role === 'admin' ? '#10b981' : '#94a3b8',
+                                        fontWeight: 700,
+                                        textTransform: 'uppercase',
+                                        letterSpacing: 0.5
+                                    }}>
+                                        {user.role || 'USER'}
+                                    </span>
+                                </div>
                                 <span className="profile-menu-email">{user.email}</span>
                             </div>
                         </div>
 
                         <div className="profile-menu-divider" />
+
+                        {/* Admin Menu */}
+                        {user.role === 'admin' && (
+                            <>
+                                <button
+                                    className="profile-menu-item"
+                                    onClick={() => { setIsOpen(false); setCurrentView('user-management'); }}
+                                >
+                                    <Users size={16} />
+                                    <span>Manajemen Pengguna</span>
+                                </button>
+                                <div className="profile-menu-divider" />
+                            </>
+                        )}
 
                         {/* Menu Items */}
                         <button
@@ -92,6 +132,6 @@ export function ProfileDropdown() {
 
             <ChangePasswordModal isOpen={showChangePw} onClose={() => setShowChangePw(false)} />
             <UpdateProfileModal isOpen={showUpdateProfile} onClose={() => setShowUpdateProfile(false)} />
-        </>
+        </div>
     );
 }

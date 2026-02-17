@@ -71,10 +71,9 @@ export class UsageTrackingService implements OnModuleInit {
             });
 
             for (const router of routers) {
-                // We don't await here to sync routers in parallel
-                this.syncRouterUsage(router).catch(err =>
-                    console.error(`Sync error for ${router.host}:`, err.message)
-                );
+                // We await here sequentially to avoid overwhelming the database with too many parallel transactions
+                // But you can change to parallel if needed
+                await this.syncRouterUsage(router);
             }
         } catch (error) {
             console.error('Error fetching routers for sync:', error.message);
@@ -97,10 +96,12 @@ export class UsageTrackingService implements OnModuleInit {
 
             // 1. Sync Secrets (Delete from DB if removed from Mikrotik)
             const mikrotikSecretNames = new Set(secrets.map(s => s.name));
+
+            // OPTIMIZED: Fetch complete user data for in-memory processing
             const dbUsers = await this.prisma.pPPUser.findMany({
                 where: { routerId: router.id },
-                select: { secretName: true }
             });
+            const dbUserMap = new Map(dbUsers.map(u => [u.secretName, u]));
 
             const toDelete = dbUsers
                 .filter(u => !mikrotikSecretNames.has(u.secretName))
@@ -108,35 +109,31 @@ export class UsageTrackingService implements OnModuleInit {
 
             const loginList: string[] = [];
             const logoutList: string[] = [];
-
-            if (toDelete.length > 0) {
-                console.log(`[SYNC] Removing ${toDelete.length} defunct secrets for router ${router.host}`);
-                await this.prisma.pPPUser.deleteMany({
-                    where: {
-                        routerId: router.id,
-                        secretName: { in: toDelete }
-                    }
-                });
-            }
-
             const currentOnlineNames = new Set<string>();
 
-            console.log(`[SYNC] ${router.host}: Fetched ${users.length} users. Processing...`);
+            // Transaction Container
+            const transactionOperations: any[] = [];
 
-            // 2. Add/Update Users from Mikrotik
+            // A. Add DELETE operations
+            if (toDelete.length > 0) {
+                console.log(`[SYNC] Removing ${toDelete.length} defunct secrets for router ${router.host}`);
+                transactionOperations.push(
+                    this.prisma.pPPUser.deleteMany({
+                        where: {
+                            routerId: router.id,
+                            secretName: { in: toDelete }
+                        }
+                    })
+                );
+            }
+
+            console.log(`[SYNC] ${router.host}: Fetched ${users.length} users. Processing batch updates...`);
+
+            // B. Add UPSERT operations (Prepared in Memory)
             for (const user of users) {
                 try {
                     const cacheKey = `${router.id}:${user.name}`;
-
-                    // Fetch existing user to get accumulation state
-                    const existingUser = await this.prisma.pPPUser.findUnique({
-                        where: {
-                            routerId_secretName: {
-                                routerId: router.id,
-                                secretName: user.name,
-                            },
-                        },
-                    });
+                    const existingUser = dbUserMap.get(user.name);
 
                     const currentTx = user.isOnline ? user.currentTxBytes : 0n;
                     const currentRx = user.isOnline ? user.currentRxBytes : 0n;
@@ -154,66 +151,61 @@ export class UsageTrackingService implements OnModuleInit {
                             if (currentTx < prevCurrentTx && prevCurrentTx > 0n) {
                                 newAccumulatedTx += prevCurrentTx;
                                 newAccumulatedRx += prevCurrentRx;
-                                console.log(`[ACCUMULATE] RESET DETECTED for ${user.name}.`);
-                                console.log(`   > Prev Session: ${formatBytes(prevCurrentTx)}`);
-                                console.log(`   > New Session : ${formatBytes(currentTx)}`);
-                                console.log(`   > Added to History. New Total History: ${formatBytes(newAccumulatedTx)}`);
+                                // console.log(`[ACCUMULATE] RESET DETECTED for ${user.name}.`);
                             }
                         } else {
                             // User went Offline - Store last session to history
-                            // IMPORTANT: Only if prev was > 0, to avoid adding 0 repeatedly
                             if (prevCurrentTx > 0n || prevCurrentRx > 0n) {
                                 newAccumulatedTx += prevCurrentTx;
                                 newAccumulatedRx += prevCurrentRx;
-                                console.log(`[ACCUMULATE] OFFLINE DETECTED for ${user.name}.`);
-                                console.log(`   > Final Session Value: ${formatBytes(prevCurrentTx)}`);
-                                console.log(`   > Added to History. New Total History: ${formatBytes(newAccumulatedTx)}`);
+                                // console.log(`[ACCUMULATE] OFFLINE DETECTED for ${user.name}.`);
                             }
                         }
                     }
 
-                    await this.prisma.pPPUser.upsert({
-                        where: {
-                            routerId_secretName: {
-                                routerId: router.id,
-                                secretName: user.name,
-                            },
-                        },
-                        update: {
-                            comment: user.comment ? String(user.comment) : null,
-                            lastSeenOnline: user.isOnline ? new Date() : undefined,
-                            accumulatedTxBytes: newAccumulatedTx,
-                            accumulatedRxBytes: newAccumulatedRx,
-                            // CONDITIONAL UPDATE:
-                            // Only overwrite 'current' session bytes if user is ONLINE.
-                            // If Offline, keep the last stored value so UI shows "Last Session" instead of 0.
-                            currentTxBytes: user.isOnline ? currentTx : undefined,
-                            currentRxBytes: user.isOnline ? currentRx : undefined,
-                        },
-                        create: {
-                            routerId: router.id,
-                            secretName: user.name,
-                            comment: user.comment ? String(user.comment) : null,
-                            accumulatedTxBytes: 0n,
-                            accumulatedRxBytes: 0n,
-                            currentTxBytes: currentTx,
-                            currentRxBytes: currentRx,
-                            lastSeenOnline: user.isOnline ? new Date() : null,
-                        },
-                    });
+                    // Prepare Data
+                    const updateData = {
+                        comment: user.comment ? String(user.comment) : null,
+                        lastSeenOnline: user.isOnline ? new Date() : undefined,
+                        accumulatedTxBytes: newAccumulatedTx,
+                        accumulatedRxBytes: newAccumulatedRx,
+                        currentTxBytes: user.isOnline ? currentTx : undefined,
+                        currentRxBytes: user.isOnline ? currentRx : undefined,
+                    };
 
+                    const createData = {
+                        routerId: router.id,
+                        secretName: user.name,
+                        comment: user.comment ? String(user.comment) : null,
+                        accumulatedTxBytes: 0n,
+                        accumulatedRxBytes: 0n,
+                        currentTxBytes: currentTx,
+                        currentRxBytes: currentRx,
+                        lastSeenOnline: user.isOnline ? new Date() : null,
+                    };
+
+                    // Add to transaction batch
+                    transactionOperations.push(
+                        this.prisma.pPPUser.upsert({
+                            where: {
+                                routerId_secretName: {
+                                    routerId: router.id,
+                                    secretName: user.name,
+                                },
+                            },
+                            update: updateData,
+                            create: createData,
+                        })
+                    );
+
+                    // Side Effects (Cache & Notifications) - handle here, commit assumes success
                     if (user.isOnline) {
                         currentOnlineNames.add(user.name);
-
                         // NOTIFIKASI LOGIN
-                        // Jika tidak ada di cache RAM, berarti barusan connect
                         if (!this.onlineUsersCache.has(cacheKey)) {
-                            if (!this.onlineUsersCache.has(cacheKey)) {
-                                loginList.push(user.name);
-                            }
+                            loginList.push(user.name);
                         }
-
-                        // Update RAM cache for disconnect detection only
+                        // Update RAM cache
                         this.onlineUsersCache.set(cacheKey, {
                             secretName: user.name,
                             routerId: router.id,
@@ -223,24 +215,32 @@ export class UsageTrackingService implements OnModuleInit {
                         });
                     }
                 } catch (err: any) {
-                    console.error(`[SYNC ERROR] Failed processing user ${user.name} on ${router.host}:`, err.message);
+                    console.error(`[PROCESS ERROR] Failed prepping user ${user.name}:`, err.message);
                 }
             }
 
-            // Cleanup RAM cache for users no longer tracked in this router
-            // Cleanup RAM cache for users no longer tracked in this router
+            // C. EXECUTE TRANSACTION IN CHUNKS
+            // SQLite has limits on query variables and transaction size. keeping chunks small is safer.
+            const CHUNK_SIZE = 50;
+            for (let i = 0; i < transactionOperations.length; i += CHUNK_SIZE) {
+                const chunk = transactionOperations.slice(i, i + CHUNK_SIZE);
+                try {
+                    await this.prisma.$transaction(chunk);
+                } catch (txError) {
+                    console.error(`[DB SYNC] Transaction chunk ${i} failed:`, txError.message);
+                }
+            }
+
+            // Cleanup RAM cache for disconnected users
             for (const [cacheKey, cachedUser] of this.onlineUsersCache.entries()) {
                 if (cachedUser.routerId === router.id && !currentOnlineNames.has(cachedUser.secretName)) {
                     logoutList.push(cachedUser.secretName);
-
-                    // Record history
                     this.recordSessionHistory(cachedUser).catch(e => console.error(e));
-
                     this.onlineUsersCache.delete(cacheKey);
                 }
             }
 
-            // SEND BATCH REPORT
+            // SEND SUMMARY REPORT
             if (router.telegramBotToken && router.telegramChatId) {
                 const totalActive = users.filter(u => u.isOnline).length;
                 const totalSecrets = users.length;
@@ -249,6 +249,9 @@ export class UsageTrackingService implements OnModuleInit {
                     .map(u => u.name)
                     .sort();
 
+                // Only send report if there are changes or errors, typically. 
+                // But existing logic sends report every sync? Maybe too spammy?
+                // Keeping original logic: send report
                 await this.telegramService.sendSyncReport(
                     router.telegramBotToken,
                     router.telegramChatId,
@@ -263,8 +266,8 @@ export class UsageTrackingService implements OnModuleInit {
                 ).catch(e => console.error('[TELEGRAM] Error sending report:', e));
             }
 
-            // Update router lastSync every 5 mins only (optimization)
-            if (Math.random() < 0.1) { // 10% chance every 30s ~ approx 5 mins
+            // Update router lastSync (randomly to avoid constant writes)
+            if (Math.random() < 0.1) {
                 await this.prisma.router.update({
                     where: { id: router.id },
                     data: { lastSync: new Date() },
@@ -272,7 +275,7 @@ export class UsageTrackingService implements OnModuleInit {
             }
 
         } catch (error) {
-            // Silently fail, log in console
+            console.error(`[SYNC FATAL] Error syncing router ${router.host}:`, error.message);
         }
     }
 

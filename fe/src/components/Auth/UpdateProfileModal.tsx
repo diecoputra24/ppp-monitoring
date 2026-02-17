@@ -10,7 +10,7 @@ interface UpdateProfileModalProps {
 export function UpdateProfileModal({ isOpen, onClose }: UpdateProfileModalProps) {
     const { user, updateProfile } = useAuthStore();
     const [name, setName] = useState(user?.name || '');
-    const [email, setEmail] = useState(user?.email || '');
+    const email = user?.email || ''; // Email is read-only
     const [loading, setLoading] = useState(false);
 
     if (!isOpen) return null;
@@ -19,11 +19,7 @@ export function UpdateProfileModal({ isOpen, onClose }: UpdateProfileModalProps)
         e.preventDefault();
         setLoading(true);
         try {
-            // In a real app, you'd call an API here
-            // authApi.updateProfile({ name, email })
-
-            // For now, update local state
-            updateProfile(name, email);
+            await updateProfile(name); // Only update name
             setLoading(false);
             onClose();
         } catch (error) {
@@ -72,17 +68,17 @@ export function UpdateProfileModal({ isOpen, onClose }: UpdateProfileModalProps)
 
                         <div className="auth-field">
                             <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6, display: 'block' }}>
-                                Alamat Email
+                                Alamat Email (Tidak dapat diubah)
                             </label>
-                            <div className="auth-input-wrapper">
+                            <div className="auth-input-wrapper" style={{ opacity: 0.7, cursor: 'not-allowed' }}>
                                 <Mail size={18} className="auth-input-icon" />
                                 <input
                                     type="email"
                                     className="input auth-input"
-                                    placeholder="email@example.com"
                                     value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
+                                    readOnly
+                                    disabled
+                                    style={{ backgroundColor: 'var(--bg-secondary)', cursor: 'not-allowed' }}
                                 />
                             </div>
                         </div>

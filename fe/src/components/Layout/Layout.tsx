@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Router, Plus, Activity, Menu, X, Sun, Moon } from 'lucide-react';
 import { useRouterStore } from '../../store/routerStore';
+import { useUiStore } from '../../store/uiStore';
 import { RouterCard } from '../RouterCard';
 import { RouterFormModal } from '../RouterFormModal';
 import { PPPUserTable } from '../PPPUserTable';
+import { UserManagement } from '../Admin/UserManagement';
 import { ProfileDropdown } from '../Auth';
 import './Layout.css';
 
 export function Layout() {
     const { routers, selectedRouter, selectRouter, fetchRouters, fetchPPPUsers, loading } = useRouterStore();
+    const { currentView, setCurrentView } = useUiStore();
     const [showAddModal, setShowAddModal] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -59,7 +62,7 @@ export function Layout() {
                         <div className="header-logo">
                             <Activity size={20} />
                         </div>
-                        <h1>PPP Monitor</h1>
+                        <h1 onClick={() => setCurrentView('dashboard')} style={{ cursor: 'pointer' }}>PPP Monitor</h1>
                     </div>
 
                     <div className="header-actions">
@@ -86,53 +89,59 @@ export function Layout() {
                 )}
 
                 {/* Sidebar */}
-                <aside className={`sidebar ${isSidebarOpen ? 'is-open' : ''}`}>
-                    <div className="sidebar-header">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Router size={18} />
-                            <span style={{ fontWeight: '600' }}>Routers</span>
+                {currentView === 'dashboard' && (
+                    <aside className={`sidebar ${isSidebarOpen ? 'is-open' : ''}`}>
+                        <div className="sidebar-header">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Router size={18} />
+                                <span style={{ fontWeight: '600' }}>Routers</span>
+                            </div>
+                            <button className="btn btn-sm btn-primary" onClick={() => setShowAddModal(true)}>
+                                <Plus size={16} />
+                                Add
+                            </button>
                         </div>
-                        <button className="btn btn-sm btn-primary" onClick={() => setShowAddModal(true)}>
-                            <Plus size={16} />
-                            Add
-                        </button>
-                    </div>
 
-                    <div className="sidebar-content">
-                        {loading && routers.length === 0 ? (
-                            <div className="loader-container">
-                                <div className="loader" />
-                            </div>
-                        ) : routers.length === 0 ? (
-                            <div className="sidebar-empty-state">
-                                <div className="s-empty-icon">
-                                    <Router size={32} />
+                        <div className="sidebar-content">
+                            {loading && routers.length === 0 ? (
+                                <div className="loader-container">
+                                    <div className="loader" />
                                 </div>
-                                <h3>Belum Ada Router</h3>
-                                <p>Tambahkan router pertama Anda untuk mulai memantau.</p>
-                                <button className="btn btn-sm btn-primary" onClick={() => setShowAddModal(true)}>
-                                    <Plus size={14} />
-                                    Tambah Router
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="router-list">
-                                {routers.map((router) => (
-                                    <RouterCard
-                                        key={router.id}
-                                        router={router}
-                                        isSelected={selectedRouter?.id === router.id}
-                                        onSelect={() => selectRouter(router)}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </aside>
+                            ) : routers.length === 0 ? (
+                                <div className="sidebar-empty-state">
+                                    <div className="s-empty-icon">
+                                        <Router size={32} />
+                                    </div>
+                                    <h3>Belum Ada Router</h3>
+                                    <p>Tambahkan router pertama Anda untuk mulai memantau.</p>
+                                    <button className="btn btn-sm btn-primary" onClick={() => setShowAddModal(true)}>
+                                        <Plus size={14} />
+                                        Tambah Router
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="router-list">
+                                    {routers.map((router) => (
+                                        <RouterCard
+                                            key={router.id}
+                                            router={router}
+                                            isSelected={selectedRouter?.id === router.id}
+                                            onSelect={() => selectRouter(router)}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </aside>
+                )}
 
                 {/* Main Content */}
-                <main className="main-content">
-                    <PPPUserTable />
+                <main className={`main-content ${currentView !== 'dashboard' ? 'full-width' : ''}`}>
+                    {currentView === 'dashboard' ? (
+                        <PPPUserTable />
+                    ) : (
+                        <UserManagement />
+                    )}
                 </main>
             </div>
 

@@ -27,8 +27,8 @@ import type { Request as ExpressRequest, Response as ExpressResponse } from 'exp
 import { AuthService } from '../services/auth.service';
 import { BetterAuthEngineService } from '../services/better-auth-engine.service';
 import { ZodValidationPipe } from '../pipes/zod-validation.pipe';
-import { signInSchema, signUpSchema, refreshTokenSchema, changePasswordSchema } from '../schemas/auth.schema';
-import type { SignInInput, SignUpInput, RefreshTokenInput, ChangePasswordInput } from '../schemas/auth.schema';
+import { signInSchema, signUpSchema, refreshTokenSchema, changePasswordSchema, updateProfileSchema } from '../schemas/auth.schema';
+import type { SignInInput, SignUpInput, RefreshTokenInput, ChangePasswordInput, UpdateProfileInput } from '../schemas/auth.schema';
 import { Public } from '../decorators/public.decorator';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import { CSRF_HEADER } from '../types/auth.types';
@@ -173,10 +173,13 @@ export class AuthController {
      */
     @Get('me')
     @HttpCode(HttpStatus.OK)
-    getMe(@CurrentUser() user: AuthUserProfile) {
+    async getMe(@CurrentUser() user: AuthUserProfile) {
+        // Fetch fresh user data from database to ensure roles are up-to-date
+        const freshUser = await this.authService.getUserById(user.id);
+
         return {
             success: true,
-            data: { user },
+            data: { user: freshUser },
         };
     }
 
@@ -201,6 +204,31 @@ export class AuthController {
         return {
             success: true,
             message: 'Password berhasil diubah',
+        };
+    }
+
+    /**
+     * POST /api/auth/update-profile
+     * Updates the authenticated user's profile.
+     */
+    @Post('update-profile')
+    @HttpCode(HttpStatus.OK)
+    async updateProfile(
+        @Body(new ZodValidationPipe(updateProfileSchema)) body: UpdateProfileInput,
+        @CurrentUser() user: AuthUserProfile,
+        @Headers(CSRF_HEADER) csrfToken: string | undefined,
+    ) {
+        // Only pass 'name' to the service
+        const updatedUser = await this.authService.updateProfile(
+            user.id,
+            { name: body.name },
+            csrfToken,
+        );
+
+        return {
+            success: true,
+            message: 'Profil berhasil diperbarui',
+            data: { user: updatedUser },
         };
     }
 

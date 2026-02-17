@@ -68,25 +68,40 @@ export const refreshTokenSchema = z.object({
 // Change Password Schema
 // ============================================================
 
-export const changePasswordSchema = z.object({
-    currentPassword: z
-        .string({ error: 'Password saat ini wajib diisi' })
-        .min(1, 'Password saat ini tidak boleh kosong'),
+export const changePasswordSchema = z
+    .object({
+        currentPassword: z
+            .string({ error: 'Password saat ini wajib diisi' })
+            .min(1, 'Password saat ini tidak boleh kosong'),
 
-    newPassword: z
-        .string({ error: 'Password baru wajib diisi' })
-        .min(6, 'Password baru minimal 6 karakter')
-        .max(128, 'Password baru terlalu panjang'),
+        newPassword: z
+            .string({ error: 'Password baru wajib diisi' })
+            .min(6, 'Password baru minimal 6 karakter')
+            .max(128, 'Password baru terlalu panjang'),
 
-    confirmPassword: z
-        .string({ error: 'Konfirmasi password wajib diisi' })
-        .min(1, 'Konfirmasi password tidak boleh kosong'),
-}).refine((data) => data.newPassword === data.confirmPassword, {
-    message: 'Konfirmasi password tidak cocok dengan password baru',
-    path: ['confirmPassword'],
-}).refine((data) => data.currentPassword !== data.newPassword, {
-    message: 'Password baru tidak boleh sama dengan password saat ini',
-    path: ['newPassword'],
+        confirmPassword: z
+            .string({ error: 'Konfirmasi password wajib diisi' })
+            .min(1, 'Konfirmasi password tidak boleh kosong'),
+    })
+    .refine((data) => data.newPassword === data.confirmPassword, {
+        message: 'Konfirmasi password tidak cocok dengan password baru',
+        path: ['confirmPassword'],
+    })
+    .refine((data) => data.currentPassword !== data.newPassword, {
+        message: 'Password baru tidak boleh sama dengan password saat ini',
+        path: ['newPassword'],
+    });
+
+// ============================================================
+// Update Profile Schema
+// ============================================================
+
+export const updateProfileSchema = z.object({
+    name: z
+        .string({ error: 'Nama wajib diisi dan harus berupa string' })
+        .min(2, 'Nama minimal 2 karakter')
+        .max(100, 'Nama terlalu panjang')
+        .trim(),
 });
 
 // ============================================================
@@ -97,3 +112,4 @@ export type SignInInput = z.infer<typeof signInSchema>;
 export type SignUpInput = z.infer<typeof signUpSchema>;
 export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

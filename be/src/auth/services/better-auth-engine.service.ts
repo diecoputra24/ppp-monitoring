@@ -234,6 +234,30 @@ export class BetterAuthEngineService implements IAuthEngine, OnModuleInit {
     }
 
     /**
+     * Update user profile.
+     * Updates ONLY user's name in the database. Email is immutable.
+     */
+    async updateProfile(userId: string, data: { name: string }): Promise<AuthUserProfile> {
+        try {
+            const updatedUser = await this.prisma.user.update({
+                where: { id: userId },
+                data: {
+                    name: data.name,
+                    updatedAt: new Date(),
+                },
+            });
+
+            return this.mapToUserProfile(updatedUser as unknown as Record<string, unknown>);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (error instanceof UnauthorizedException) throw error;
+
+            this.logger.error(`Update profile failed for ${userId}: ${String(error)}`);
+            throw new UnauthorizedException('Gagal memperbarui profil: ' + message);
+        }
+    }
+
+    /**
      * Change user password.
      * Verifies current password then updates to new password via BetterAuth API.
      */

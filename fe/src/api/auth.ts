@@ -44,6 +44,10 @@ export interface ChangePasswordPayload {
     confirmPassword: string;
 }
 
+export interface UpdateProfilePayload {
+    name: string;
+}
+
 export const authApi = {
     signIn: (data: SignInPayload) =>
         api.post<AuthResponse>('/auth/sign-in', data),
@@ -59,4 +63,7 @@ export const authApi = {
 
     changePassword: (data: ChangePasswordPayload) =>
         api.post<{ success: boolean; message: string }>('/auth/change-password', data),
+
+    updateProfile: (data: UpdateProfilePayload) =>
+        api.post<{ success: boolean; message: string; data: { user: AuthUser } }>('/auth/update-profile', data),
 };
