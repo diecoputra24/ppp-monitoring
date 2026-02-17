@@ -1,7 +1,4 @@
-# MikroTik Monitoring (Local Dev)
-
-Panduan instalasi dan menjalankan aplikasi di laptop untuk development.
-Tidak perlu PM2 atau Nginx. Cukup Node.js.
+# MikroTik PPP Monitoring
 
 ---
 
