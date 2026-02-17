@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { adminApi, type AdminUser } from '../../api/admin';
 import { useAuthStore } from '../../store/authStore';
 import { useUiStore } from '../../store/uiStore';
-import { Trash2, Edit, ChevronLeft, Shield, Router as RouterIcon, X, AlertTriangle, Save, Eye, Search } from 'lucide-react';
+import { Trash2, Edit, ChevronLeft, Shield, Router as RouterIcon, X, AlertTriangle, Save, Search } from 'lucide-react';
 import { toast } from '../../store/toastStore';
 import './UserManagement.css';
 
