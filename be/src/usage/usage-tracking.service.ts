@@ -80,6 +80,9 @@ export class UsageTrackingService implements OnModuleInit {
         }
     }
 
+    // Cache for last heartbeat time per router
+    private routerHeartbeats: Map<string, number> = new Map();
+
     private async syncRouterUsage(router: any) {
         const config: MikrotikConfig = {
             host: router.host,
@@ -88,8 +91,19 @@ export class UsageTrackingService implements OnModuleInit {
             password: router.password,
         };
 
+        // Determine if this run should be a heartbeat (every 1 hour)
+        const lastHeartbeat = this.routerHeartbeats.get(router.id) || 0;
+        const now = Date.now();
+        const isHeartbeat = (now - lastHeartbeat) > 3600000; // 3600000 ms = 1 hour
+
+        if (isHeartbeat) {
+            this.routerHeartbeats.set(router.id, now);
+        }
+
         try {
             const { users, secrets } = await this.mikrotikService.getPPPStatus(config);
+
+            // ... (rest of the code is same until sendSyncReport)
 
             // Save to global cache for fast API response
             this.routerDataCache.set(router.id, { users, timestamp: Date.now() });
@@ -127,7 +141,8 @@ export class UsageTrackingService implements OnModuleInit {
                 );
             }
 
-            console.log(`[SYNC] ${router.host}: Fetched ${users.length} users. Processing batch updates...`);
+            // Console log removed to reduce noise
+            // console.log(`[SYNC] ${router.host}: Fetched ${users.length} users. Processing batch updates...`);
 
             // B. Add UPSERT operations (Prepared in Memory)
             for (const user of users) {
@@ -249,9 +264,6 @@ export class UsageTrackingService implements OnModuleInit {
                     .map(u => u.name)
                     .sort();
 
-                // Only send report if there are changes or errors, typically. 
-                // But existing logic sends report every sync? Maybe too spammy?
-                // Keeping original logic: send report
                 await this.telegramService.sendSyncReport(
                     router.telegramBotToken,
                     router.telegramChatId,
@@ -261,7 +273,8 @@ export class UsageTrackingService implements OnModuleInit {
                         logouts: logoutList,
                         totalSecrets,
                         totalActive,
-                        disconnected: offlineList
+                        disconnected: offlineList,
+                        isHeartbeat: isHeartbeat
                     }
                 ).catch(e => console.error('[TELEGRAM] Error sending report:', e));
             }

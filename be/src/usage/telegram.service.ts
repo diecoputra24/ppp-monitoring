@@ -8,6 +8,7 @@ export interface SyncReportData {
     totalSecrets: number;
     totalActive: number;
     disconnected: string[];
+    isHeartbeat?: boolean;
 }
 
 @Injectable()
@@ -20,8 +21,8 @@ export class TelegramService {
             return;
         }
 
-        // Only send report if there is activity (login or logout)
-        if (data.logins.length === 0 && data.logouts.length === 0) {
+        // Only send report if there is activity (login or logout) OR if it is a heartbeat
+        if (!data.isHeartbeat && data.logins.length === 0 && data.logouts.length === 0) {
             return;
         }
 
@@ -33,7 +34,12 @@ export class TelegramService {
         const now = new Date();
         const timeString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
 
-        let message = `📊 <b>Sync Report</b>\n`;
+        let message = ``;
+        if (data.isHeartbeat) {
+            message += `💓 <b>System Heartbeat</b>\n`;
+        } else {
+            message += `📊 <b>Sync Report</b>\n`;
+        }
         message += `Time: ${timeString}\n`;
         message += `---\n\n`;
 
@@ -53,6 +59,10 @@ export class TelegramService {
                 message += `${index + 1}. ${user}\n`;
             });
             message += `\n\n`;
+        }
+
+        if (data.isHeartbeat && data.logins.length === 0 && data.logouts.length === 0) {
+            message += `<i>No changes detected (System Healthy)</i>\n\n`;
         }
 
         message += `==============================\n`;
