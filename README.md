@@ -13,6 +13,22 @@ Pastikan sudah terinstall:
 
 ---
 
+## ✨ Fitur Utama
+
+-   **Monitoring PPP Mikrotik**: Terintegrasi langsung via API.
+-   **Real-time Auto Sync**: Data sinkronisasi otomatis setiap 30 detik.
+
+## ⚠️ Catatan Penting & Known Bugs
+
+1.  **Tombol Isolir**:
+    -   Sebelum menggunakan tombol isolir, **wajib** mengisi nama profil isolir terlebih dahulu di pengaturan.
+    -   Jika baru saja mengisi/mengupdate profil isolir, **silakan refresh halaman** browser Anda agar perubahan terbaca.
+2.  **Telegram**:
+    -   Saat ini masih terdapat *bug* pada fitur bot Telegram.
+    -   **Jangan gunakan** fitur Telegram untuk sementara waktu.
+
+---
+
 ## 🚀 1. Setup Backend
 
 Buka terminal baru (Terminal A), lalu jalankan:
