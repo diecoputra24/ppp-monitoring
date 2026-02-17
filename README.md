@@ -1,121 +1,65 @@
-# MikroTik Monitor & Billing System
+# MikroTik Monitoring (Local Dev)
 
-Aplikasi monitoring dan billing sederhana untuk MikroTik PPP, dibuat dengan NestJS (Backend) dan React Vite (Frontend).
+Panduan instalasi dan menjalankan aplikasi di laptop untuk development.
+Tidak perlu PM2 atau Nginx. Cukup Node.js.
 
-## 📂 Struktur Project
+---
 
-Repo ini menggunakan konsep **monorepo simple** dengan dua folder utama:
-- `be/` - Backend (NestJS + Prisma + SQLite3)
-- `fe/` - Frontend (React + Vite + Tailwind/CSS)
+## 📋 Persiapan (Prerequisites)
 
-## 🚀 Panduan Instalasi & Menjalankan (Deployment)
+Pastikan sudah terinstall:
+-   **Node.js** (Download di https://nodejs.org/)
+-   **Git**
 
-Ikuti langkah-langkah ini untuk menjalankan aplikasi di server atau komputer lokal.
+---
 
-### 1. Persiapan (Prerequisites)
-Pastikan di komputer/server sudah terinstall:
-- **Node.js** (Versi 18 atau 20 recommended)
-- **Git**
+## 🚀 1. Setup Backend
 
-### 2. Setup Backend (`be`)
-Backend bertugas konek ke MikroTik dan menyimpan data ke database SQLite lokal (`monitoring.db`).
+Buka terminal baru (Terminal A), lalu jalankan:
 
 ```bash
-# Masuk ke folder backend
 cd be
-
-# 1. Install Library
 npm install
 
-# 2. Setup Database (Generate Prisma Client & Push DB)
-npx prisma generate
+# Copy file env jika belum ada
+cp .env.example .env
+
+# Generate BETTER_AUTH_SECRET (Wajib)
+# Jalankan command ini di terminal untuk mendapatkan random string:
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# Copy output string tersebut dan masukkan ke dalam file .env pada variabel BETTER_AUTH_SECRET=...
+
+# Setup Database
 npx prisma db push
 
-# 3. Jalankan Backend (Mode Produksi)
-npm run build
-npm run start:prod
+# Jalankan Backend
+npm run dev
 ```
-> Backend akan berjalan di port **3008** (http://localhost:3008)
 
-### 2.1 Setup Auto-Start (Rekomendasi Produksi)
-Agar aplikasi **otomatis menyala** saat server restart/mati lampu, gunakan **PM2**.
-
-1. **Install PM2 di server:**
-   ```bash
-   npm install -g pm2
-   ```
-
-2. **Jalankan Backend dengan PM2:**
-   ```bash
-   cd be
-   pm2 start dist/main.js --name "mikrotik-be"
-   ```
-
-3. **Jalankan Frontend dengan PM2 (serve):**
-   ```bash
-   # Kita perlu serve build statis frontend
-   cd ../fe
-   npm run build
-   npx pm2 serve dist 8081 --spa --name "mikrotik-fe"
-   ```
-
-4. **Simpan agar jalan saat Booting:**
-   ```bash
-   pm2 save
-   pm2 startup
-   # Copy paste command yang muncul di layar terminal setelah 'pm2 startup'
-   ```
+*Backend akan berjalan di port `3008`.*
 
 ---
 
-### 3. Setup Frontend (Mode Dev / Manual)
-Jika tidak menggunakan PM2, gunakan cara ini untuk menjalankan Frontend.
+## 🌐 2. Setup Frontend
+
+Buka terminal **baru** lainnya (Terminal B), jangan matikan terminal backend.
 
 ```bash
-# Buka terminal BARU (jangan matikan terminal backend)
-# Masuk ke folder frontend
 cd fe
-
-# 1. Install Library
 npm install
 
-# 2. Jalankan Frontend (Mode Preview/Host)
-npm run dev -- --host
+# Jalankan Frontend
+npm run dev
 ```
-> Frontend akan berjalan di port **8081** (http://localhost:8081)
+
+*Frontend akan berjalan di port `8081`.*
 
 ---
 
-### 4. Cara Menggunakan
-1. Buka browser dan akses `http://localhost:8081` (atau IP server port 8081).
-2. Di menu sidebar, klik **Add Router**.
-3. Masukkan detail MikroTik Anda:
-   - **Host:** IP Router (misal: 192.168.88.1)
-   - **Port:** Port API (Default: 8728)
-   - **Username:** User admin mikrotik
-   - **Password:** Password admin
-4. Klik **Save**.
-5. Klik nama router di sidebar untuk melihat status PPP user real-time.
+## ✅ Cara Pakai
 
----
+1.  Pastikan kedua terminal (Backend & Frontend) tetap berjalan.
+2.  Buka browser dan akses: **http://localhost:8081**
+3.  Login dan gunakan aplikasi.
 
-### 🛠️ Troubleshooting (Masalah Umum)
-
-**Q: Backend error `Address already in use`**
-A: Ada proses lain yang memakai port 3008. Matikan dulu proses node sebelumnya (task manager) atau restart server.
-
-**Q: Frontend tidak bisa konek ke Backend (`Network Error`)**
-A: Pastikan file `fe/src/api/index.ts` mengarah ke URL backend yang benar. Jika di server, pastikan port 3008 dibuka di firewall.
-
-**Q: Telegram Sync Timeout / Error**
-A: Koneksi internet server ke `api.telegram.org` mungkin sedang gangguan. Bot akan otomatis normal kembali saat koneksi stabil.
-
-**Q: Database hilang saat restart?**
-A: Karena pakai SQLite, pastikan file `be/prisma/monitoring.db` tidak terhapus. File ini menyimpan semua data router & setting.
-
----
-
-### 📜 Tech Stack
-- **Backend:** NestJS, Prisma ORM, SQLite, RxJS, Axios
-- **Frontend:** React, Vite, Zustand (State Management), Lucide Icons
-- **Integration:** MikroTik RouterOS API, Telegram Bot API
+Jika ingin mematikan aplikasi, cukup tekan `Ctrl + C` di masing-masing terminal.
