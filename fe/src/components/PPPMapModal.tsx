@@ -145,7 +145,16 @@ export function PPPMapModal({ isOpen, onClose, routerId, pppUsers = [] }: PPPMap
     // ODP add mode
     const [odpName, setOdpName] = useState('');
     const [clickLatLng, setClickLatLng] = useState<[number, number] | null>(null);
+    const [manualCoord, setManualCoord] = useState('');
     const [savingODP, setSavingODP] = useState(false);
+
+    useEffect(() => {
+        if (clickLatLng) {
+            setManualCoord(`${clickLatLng[0].toFixed(6)}, ${clickLatLng[1].toFixed(6)}`);
+        } else {
+            setManualCoord('');
+        }
+    }, [clickLatLng]);
 
     // Cable drawing state
     const [cableFromOdpId, setCableFromOdpId] = useState<string | null>(null);
@@ -459,22 +468,19 @@ export function PPPMapModal({ isOpen, onClose, routerId, pppUsers = [] }: PPPMap
                             />
                             <div style={{ display: 'flex', gap: '4px' }}>
                                 <input
-                                    type="number" className="input" placeholder="Lat"
-                                    value={clickLatLng ? clickLatLng[0] : ''}
+                                    type="text" className="input" placeholder="Lat, Lng (contoh: -6.123, 106.123)"
+                                    value={manualCoord}
                                     onChange={e => {
-                                        const val = parseFloat(e.target.value);
-                                        if (!isNaN(val)) setClickLatLng(prev => [val, prev ? prev[1] : 0]);
+                                        const val = e.target.value;
+                                        setManualCoord(val);
+                                        const match = val.match(/([0-9.-]+)[,\s]+([0-9.-]+)/);
+                                        if (match) {
+                                            const lat = parseFloat(match[1]);
+                                            const lng = parseFloat(match[2]);
+                                            if (!isNaN(lat) && !isNaN(lng)) setClickLatLng([lat, lng]);
+                                        }
                                     }}
-                                    style={{ width: '90px', padding: '6px 10px', fontSize: '12px' }}
-                                />
-                                <input
-                                    type="number" className="input" placeholder="Lng"
-                                    value={clickLatLng ? clickLatLng[1] : ''}
-                                    onChange={e => {
-                                        const val = parseFloat(e.target.value);
-                                        if (!isNaN(val)) setClickLatLng(prev => [prev ? prev[0] : 0, val]);
-                                    }}
-                                    style={{ width: '90px', padding: '6px 10px', fontSize: '12px' }}
+                                    style={{ width: '200px', padding: '6px 10px', fontSize: '12px' }}
                                 />
                             </div>
                         </div>

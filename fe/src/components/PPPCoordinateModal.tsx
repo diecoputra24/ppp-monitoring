@@ -60,6 +60,7 @@ export function PPPCoordinateModal({ isOpen, onClose, routerId, user, allUsers, 
     const [selectedOdp, setSelectedOdp] = useState<string>('');
     const [saving, setSaving] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [manualCoord, setManualCoord] = useState('');
 
     const fetchODPs = useCallback(async () => {
         setLoading(true);
@@ -84,6 +85,14 @@ export function PPPCoordinateModal({ isOpen, onClose, routerId, user, allUsers, 
             setSelectedOdp(user.odpId || '');
         }
     }, [isOpen, user, fetchODPs]);
+
+    useEffect(() => {
+        if (selectedPos) {
+            setManualCoord(`${selectedPos[0].toFixed(6)}, ${selectedPos[1].toFixed(6)}`);
+        } else {
+            setManualCoord('');
+        }
+    }, [selectedPos]);
 
     const handleSave = async () => {
         if (!user) return;
@@ -167,26 +176,21 @@ export function PPPCoordinateModal({ isOpen, onClose, routerId, user, allUsers, 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                         <div style={{ display: 'flex', gap: '6px' }}>
                             <input
-                                type="number"
+                                type="text"
                                 className="input"
-                                placeholder="Lat"
-                                value={selectedPos ? selectedPos[0] : ''}
+                                placeholder="Lat, Lng (contoh: -6.123, 106.123)"
+                                value={manualCoord}
                                 onChange={e => {
-                                    const val = parseFloat(e.target.value);
-                                    if (!isNaN(val)) setSelectedPos(prev => [val, prev ? prev[1] : 0]);
+                                    const val = e.target.value;
+                                    setManualCoord(val);
+                                    const match = val.match(/([0-9.-]+)[,\s]+([0-9.-]+)/);
+                                    if (match) {
+                                        const lat = parseFloat(match[1]);
+                                        const lng = parseFloat(match[2]);
+                                        if (!isNaN(lat) && !isNaN(lng)) setSelectedPos([lat, lng]);
+                                    }
                                 }}
-                                style={{ width: '100px', padding: '6px 10px', fontSize: '12px' }}
-                            />
-                            <input
-                                type="number"
-                                className="input"
-                                placeholder="Lng"
-                                value={selectedPos ? selectedPos[1] : ''}
-                                onChange={e => {
-                                    const val = parseFloat(e.target.value);
-                                    if (!isNaN(val)) setSelectedPos(prev => [prev ? prev[0] : 0, val]);
-                                }}
-                                style={{ width: '100px', padding: '6px 10px', fontSize: '12px' }}
+                                style={{ width: '220px', padding: '6px 10px', fontSize: '12px' }}
                             />
                         </div>
                         <select
