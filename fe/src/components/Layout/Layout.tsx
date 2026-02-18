@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Router, Plus, Activity, Menu, X, Sun, Moon } from 'lucide-react';
+import { Router, Plus, Activity, Menu, X, Sun, Moon, Globe } from 'lucide-react';
 import { useRouterStore } from '../../store/routerStore';
 import { useUiStore } from '../../store/uiStore';
 import { RouterCard } from '../RouterCard';
@@ -8,11 +8,13 @@ import { PPPUserTable } from '../PPPUserTable';
 import { UserManagement } from '../Admin/UserManagement';
 import { ProfileDropdown } from '../Auth';
 import './Layout.css';
+import { PPPMapModal } from '../PPPMapModal';
 
 export function Layout() {
     const { routers, selectedRouter, selectRouter, fetchRouters, fetchPPPUsers, loading } = useRouterStore();
     const { currentView, setCurrentView } = useUiStore();
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showGlobalMap, setShowGlobalMap] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(() => {
         const saved = localStorage.getItem('theme');
@@ -66,6 +68,21 @@ export function Layout() {
                     </div>
 
                     <div className="header-actions">
+                        <button
+                            className="btn btn-sm btn-primary"
+                            onClick={() => setShowGlobalMap(true)}
+                            style={{
+                                marginRight: '10px',
+                                background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
+                            title="Global Map (Read Only)"
+                        >
+                            <Globe size={16} />
+                            <span style={{ fontSize: '13px', fontWeight: 500 }} className="hide-mobile">Global Map</span>
+                        </button>
                         <label className="theme-switch" title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
                             <input
                                 type="checkbox"
@@ -147,6 +164,12 @@ export function Layout() {
 
             {/* Add Router Modal */}
             <RouterFormModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} />
+
+            {/* Global Map Modal */}
+            <PPPMapModal
+                isOpen={showGlobalMap}
+                onClose={() => setShowGlobalMap(false)}
+            />
         </div>
     );
 }

@@ -296,3 +296,9 @@ input:checked+.slider .slider-icon.sun {
 input:not(:checked)+.slider .slider-icon.moon {
     opacity: 0;
 }
+
+@media (max-width: 640px) {
+    .hide-mobile {
+        display: none !important;
+    }
+}

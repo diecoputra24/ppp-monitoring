@@ -29,9 +29,11 @@ model Router {
 
   lastSync DateTime?
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   pppUsers  PPPUser[]
+  odps      ODP[]
+  odpCables ODPCable[]
 }
 
 // Track PPP users with accumulated usage
@@ -47,12 +49,45 @@ model PPPUser {
   currentRxBytes     BigInt         @default(0)
   isOnline           Boolean        @default(false)
   lastSeenOnline     DateTime?
+  latitude           Float?
+  longitude          Float?
+  odpId              String?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   router             Router         @relation(fields: [routerId], references: [id], onDelete: Cascade)
+  odp                ODP?           @relation(fields: [odpId], references: [id], onDelete: SetNull)
   usageHistory       UsageHistory[]
 
   @@unique([routerId, secretName])
+}
+
+// ODP (Optical Distribution Point) for fiber network mapping
+model ODP {
+  id         String     @id @default(uuid())
+  routerId   String
+  name       String
+  latitude   Float
+  longitude  Float
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  router     Router     @relation(fields: [routerId], references: [id], onDelete: Cascade)
+  users      PPPUser[]
+  cablesFrom ODPCable[] @relation("CableFrom")
+  cablesTo   ODPCable[] @relation("CableTo")
+}
+
+// Cable connections between ODPs
+model ODPCable {
+  id        String   @id @default(uuid())
+  routerId  String
+  fromOdpId String
+  toOdpId   String
+  label     String?
+  waypoints String? // JSON array of [lat, lng] pairs for cable bending
+  createdAt DateTime @default(now())
+  router    Router   @relation(fields: [routerId], references: [id], onDelete: Cascade)
+  fromOdp   ODP      @relation("CableFrom", fields: [fromOdpId], references: [id], onDelete: Cascade)
+  toOdp     ODP      @relation("CableTo", fields: [toOdpId], references: [id], onDelete: Cascade)
 }
 
 // History of each session's usage (saved when user disconnects)

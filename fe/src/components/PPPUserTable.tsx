@@ -1,11 +1,13 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Search, RefreshCw, Activity, Globe, MessageSquare, Lock, Unlock, ExternalLink, ArrowUpDown, ChevronUp, ChevronDown, UserPlus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Search, RefreshCw, Activity, Globe, MessageSquare, Lock, Unlock, ExternalLink, ArrowUpDown, ChevronUp, ChevronDown, UserPlus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MapPin, Map } from 'lucide-react';
 import { useRouterStore } from '../store/routerStore';
 import { formatBytes, type PPPUser } from '../api';
 import { PPPUserCommentModal } from './PPPUserCommentModal';
 import { PPPIsolateModal } from './PPPIsolateModal';
 import { SimpleAlertModal } from './SimpleAlertModal';
 import { PPPCreateModal } from './PPPCreateModal';
+import { PPPMapModal } from './PPPMapModal';
+import { PPPCoordinateModal } from './PPPCoordinateModal';
 
 
 export function PPPUserTable() {
@@ -33,7 +35,18 @@ export function PPPUserTable() {
     const [isolateModalOpen, setIsolateModalOpen] = useState(false);
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [alertModalOpen, setAlertModalOpen] = useState(false);
+    const [mapModalOpen, setMapModalOpen] = useState(false);
+    const [coordModalOpen, setCoordModalOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<PPPUser | null>(null);
+
+    const handleOpenCoordinate = (user: PPPUser) => {
+        setSelectedUser(user);
+        setCoordModalOpen(true);
+    };
+
+    const handleCoordSaved = useCallback(() => {
+        if (selectedRouter) fetchPPPUsers(selectedRouter.id, true);
+    }, [selectedRouter, fetchPPPUsers]);
 
     const handleOpenComment = (user: PPPUser) => {
         setSelectedUser(user);
@@ -282,7 +295,11 @@ export function PPPUserTable() {
                 <div className="header-controls">
                     <button className="btn btn-primary btn-sm" onClick={() => setCreateModalOpen(true)}>
                         <UserPlus size={14} />
-                        Tambah User
+                        <span className="btn-label">Tambah User</span>
+                    </button>
+                    <button className="btn btn-primary btn-sm" onClick={() => setMapModalOpen(true)} style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+                        <Map size={14} />
+                        <span className="btn-label">Show Map</span>
                     </button>
                     <button
                         className="btn btn-secondary btn-sm refresh-btn"
@@ -290,7 +307,7 @@ export function PPPUserTable() {
                         disabled={loading || syncing}
                     >
                         <RefreshCw size={14} className={loading || syncing ? 'spinning' : ''} />
-                        {loading || syncing ? 'Syncing...' : 'Refresh'}
+                        <span className="btn-label">{loading || syncing ? 'Syncing...' : 'Refresh'}</span>
                     </button>
                 </div>
             </div>
@@ -393,10 +410,17 @@ export function PPPUserTable() {
                 ) : isMobile ? (
                     <div className="user-cards-mobile">
                         {paginatedUsers.map((user) => (
-                            <div key={`card-${user.name}`} className="mobile-user-card">
+                            <div key={`card-${user.name}`} className={`mobile-user-card ${user.isOnline ? 'card-online' : 'card-offline'}`}>
                                 <div className="m-card-top">
                                     <div className="m-user-info" style={{ flex: 1 }}>
                                         <div className={`m-status-dot ${user.isOnline ? 'online' : ''}`} />
+                                        <button
+                                            className={`btn-comment-simple ${user.latitude ? 'active' : ''}`}
+                                            onClick={() => handleOpenCoordinate(user)}
+                                            style={{ color: '#f59e0b', padding: '2px' }}
+                                        >
+                                            <MapPin size={14} />
+                                        </button>
                                         <span className="m-user-name">{user.name}</span>
                                         <div className="flex items-center gap-1" style={{ marginLeft: 'auto' }}>
                                             <button
@@ -426,6 +450,7 @@ export function PPPUserTable() {
                                             >
                                                 {isUserIsolated(user) ? <Unlock size={14} /> : <Lock size={14} />}
                                             </button>
+
                                         </div>
                                     </div>
                                     <div className="m-detail-row">
@@ -512,7 +537,15 @@ export function PPPUserTable() {
                                             </span>
                                         </td>
                                         <td>
-                                            <div className="user-info-cell">
+                                            <div className="user-info-cell" style={{ display: 'flex', alignItems: 'center' }}>
+                                                <button
+                                                    className={`btn-comment-simple ${user.latitude ? 'active' : ''}`}
+                                                    onClick={() => handleOpenCoordinate(user)}
+                                                    title={user.latitude ? `📍 ${user.latitude.toFixed(4)}, ${user.longitude?.toFixed(4)}` : 'Set koordinat'}
+                                                    style={{ color: '#f59e0b', padding: '2px', marginRight: '4px' }}
+                                                >
+                                                    <MapPin size={13} />
+                                                </button>
                                                 <span className="u-name">{user.name}</span>
                                             </div>
                                         </td>
@@ -527,6 +560,7 @@ export function PPPUserTable() {
                                                 >
                                                     {isUserIsolated(user) ? <Unlock size={14} /> : <Lock size={14} />}
                                                 </button>
+
                                             </div>
                                         </td>
                                         <td className="font-mono text-xs">
@@ -711,8 +745,20 @@ export function PPPUserTable() {
                     flex-direction: column;
                     gap: 12px;
                     transition: transform 0.2s;
+                    border-left: 3px solid var(--border-color);
                 }
+                .mobile-user-card.card-online { border-left-color: #22c55e; }
+                .mobile-user-card.card-offline { border-left-color: #6b7280; }
                 .mobile-user-card:active { transform: scale(0.98); }
+
+                /* Mobile responsive header buttons */
+                .header-controls { display: flex; gap: 8px; align-items: center; }
+                @media (max-width: 768px) {
+                    .header-controls .btn-label { display: none; }
+                    .header-controls .btn { padding: 8px !important; min-width: unset; }
+                    .header-controls { gap: 12px; }
+                    .table-header-custom { flex-wrap: wrap; gap: 10px; padding: 10px 15px; }
+                }
                 
                 .m-card-top { display: flex; justify-content: space-between; align-items: flex-start; }
                 .m-user-info { display: flex; align-items: center; gap: 10px; }
@@ -853,6 +899,22 @@ export function PPPUserTable() {
                 onClose={() => setAlertModalOpen(false)}
                 title="Peringatan"
                 message="Profile Isolir belum disetting di Router ini! Silakan atur di menu Router terlebih dahulu."
+            />
+
+            <PPPMapModal
+                isOpen={mapModalOpen}
+                onClose={() => setMapModalOpen(false)}
+                routerId={selectedRouter.id}
+                pppUsers={pppUsers}
+            />
+
+            <PPPCoordinateModal
+                isOpen={coordModalOpen}
+                onClose={() => setCoordModalOpen(false)}
+                routerId={selectedRouter.id}
+                user={selectedUser}
+                allUsers={pppUsers}
+                onSaved={handleCoordSaved}
             />
         </div>
     );

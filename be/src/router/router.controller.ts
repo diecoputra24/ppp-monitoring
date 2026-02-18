@@ -22,6 +22,11 @@ export class RouterController {
         return this.routerService.getRouters(user.id);
     }
 
+    @Get('map/global')
+    getGlobalMap(@CurrentUser() user: AuthUserProfile) {
+        return this.routerService.getAllMapData(user.id);
+    }
+
     @Get(':id')
     findOne(@Param('id') id: string, @CurrentUser() user: AuthUserProfile) {
         return this.routerService.getRouter(id, user.id);
@@ -92,5 +97,85 @@ export class RouterController {
         @CurrentUser() user: AuthUserProfile,
     ) {
         return this.routerService.createPPPUser(id, dto, user.id);
+    }
+
+    // ==================== MAP / ODP Endpoints ====================
+
+    @Get(':id/map')
+    getMapData(@Param('id') id: string, @CurrentUser() user: AuthUserProfile) {
+        return this.routerService.getMapData(id, user.id);
+    }
+
+    @Put(':id/ppp/:name/coordinates')
+    updateUserCoordinates(
+        @Param('id') id: string,
+        @Param('name') name: string,
+        @Body() body: { latitude: number | null; longitude: number | null; odpId?: string | null },
+        @CurrentUser() user: AuthUserProfile,
+    ) {
+        return this.routerService.updateUserCoordinates(id, name, user.id, body);
+    }
+
+    @Get(':id/odps')
+    getODPs(@Param('id') id: string, @CurrentUser() user: AuthUserProfile) {
+        return this.routerService.getODPs(id, user.id);
+    }
+
+    @Post(':id/odps')
+    createODP(
+        @Param('id') id: string,
+        @Body() body: { name: string; latitude: number; longitude: number },
+        @CurrentUser() user: AuthUserProfile,
+    ) {
+        return this.routerService.createODP(id, user.id, body);
+    }
+
+    @Put(':id/odps/:odpId')
+    updateODP(
+        @Param('id') id: string,
+        @Param('odpId') odpId: string,
+        @Body() body: { name?: string; latitude?: number; longitude?: number },
+        @CurrentUser() user: AuthUserProfile,
+    ) {
+        return this.routerService.updateODP(id, odpId, user.id, body);
+    }
+
+    @Delete(':id/odps/:odpId')
+    deleteODP(
+        @Param('id') id: string,
+        @Param('odpId') odpId: string,
+        @CurrentUser() user: AuthUserProfile,
+    ) {
+        return this.routerService.deleteODP(id, odpId, user.id);
+    }
+
+    // ==================== ODP Cable Endpoints ====================
+
+    @Post(':id/odp-cables')
+    createODPCable(
+        @Param('id') id: string,
+        @Body() body: { fromOdpId: string; toOdpId: string; label?: string; waypoints?: [number, number][] },
+        @CurrentUser() user: AuthUserProfile,
+    ) {
+        return this.routerService.createODPCable(id, user.id, body);
+    }
+
+    @Put(':id/odp-cables/:cableId/waypoints')
+    updateODPCableWaypoints(
+        @Param('id') id: string,
+        @Param('cableId') cableId: string,
+        @Body() body: { waypoints: [number, number][] },
+        @CurrentUser() user: AuthUserProfile,
+    ) {
+        return this.routerService.updateODPCableWaypoints(id, cableId, user.id, body.waypoints);
+    }
+
+    @Delete(':id/odp-cables/:cableId')
+    deleteODPCable(
+        @Param('id') id: string,
+        @Param('cableId') cableId: string,
+        @CurrentUser() user: AuthUserProfile,
+    ) {
+        return this.routerService.deleteODPCable(id, cableId, user.id);
     }
 }

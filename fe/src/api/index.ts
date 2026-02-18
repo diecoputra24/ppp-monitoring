@@ -36,6 +36,10 @@ export interface PPPUser {
     callerId?: string;
     comment?: string;
     originalProfile?: string; // Need this to know if isolated
+    // Coordinates
+    latitude?: number;
+    longitude?: number;
+    odpId?: string;
     // Usage data
     currentTxBytes?: string;
     currentRxBytes?: string;
@@ -45,6 +49,42 @@ export interface PPPUser {
     storedRxBytes?: string;
     totalTxBytes?: string;
     totalRxBytes?: string;
+}
+
+export interface ODP {
+    id: string;
+    routerId: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface ODPCable {
+    id: string;
+    routerId: string;
+    fromOdpId: string;
+    toOdpId: string;
+    label: string | null;
+    waypoints: string | null; // JSON-encoded [number, number][]
+    createdAt: string;
+}
+
+export interface MapData {
+    users: {
+        id: string;
+        secretName: string;
+        latitude: number | null;
+        longitude: number | null;
+        isOnline: boolean;
+        odpId: string | null;
+        comment: string | null;
+        routerId?: string; // Add context
+    }[];
+    odps: ODP[];
+    odpCables: ODPCable[];
+    routers?: { id: string; name: string }[];
 }
 
 export interface PPPStatus {
@@ -93,6 +133,27 @@ export const routerApi = {
         api.post(`/routers/${routerId}/ppp/${userName}/isolate`, { pppId, targetProfile }),
     createPPPUser: (routerId: string, data: any) =>
         api.post(`/routers/${routerId}/ppp`, data),
+
+    // Map & ODP
+    getMapData: (routerId: string) => api.get<MapData>(`/routers/${routerId}/map`),
+    getAllMapData: () => api.get<MapData>('/routers/map/global'),
+    updateUserCoordinates: (routerId: string, userName: string, data: { latitude: number | null; longitude: number | null; odpId?: string | null }) =>
+        api.put(`/routers/${routerId}/ppp/${userName}/coordinates`, data),
+    getODPs: (routerId: string) => api.get<ODP[]>(`/routers/${routerId}/odps`),
+    createODP: (routerId: string, data: { name: string; latitude: number; longitude: number }) =>
+        api.post<ODP>(`/routers/${routerId}/odps`, data),
+    updateODP: (routerId: string, odpId: string, data: { name?: string; latitude?: number; longitude?: number }) =>
+        api.put<ODP>(`/routers/${routerId}/odps/${odpId}`, data),
+    deleteODP: (routerId: string, odpId: string) =>
+        api.delete(`/routers/${routerId}/odps/${odpId}`),
+
+    // ODP Cables
+    createODPCable: (routerId: string, data: { fromOdpId: string; toOdpId: string; label?: string; waypoints?: [number, number][] }) =>
+        api.post(`/routers/${routerId}/odp-cables`, data),
+    updateODPCableWaypoints: (routerId: string, cableId: string, waypoints: [number, number][]) =>
+        api.put(`/routers/${routerId}/odp-cables/${cableId}/waypoints`, { waypoints }),
+    deleteODPCable: (routerId: string, cableId: string) =>
+        api.delete(`/routers/${routerId}/odp-cables/${cableId}`),
 };
 
 // Helper function to format bytes to human readable

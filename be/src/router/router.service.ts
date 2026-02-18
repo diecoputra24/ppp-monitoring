@@ -207,6 +207,9 @@ export class RouterService {
                 totalTxBytes: totalTx.toString(),
                 totalRxBytes: totalRx.toString(),
                 originalProfile: storedUser?.originalProfile,
+                latitude: storedUser?.latitude,
+                longitude: storedUser?.longitude,
+                odpId: storedUser?.odpId,
             };
         });
     }
@@ -393,5 +396,152 @@ export class RouterService {
         }
 
         return result;
+    }
+
+    // ==================== MAP / ODP Methods ====================
+
+    async getMapData(routerId: string, userId: string) {
+        await this.getRouter(routerId, userId); // validate ownership
+
+        const users = await this.prisma.pPPUser.findMany({
+            where: { routerId, latitude: { not: null } },
+            select: {
+                id: true,
+                secretName: true,
+                latitude: true,
+                longitude: true,
+                isOnline: true,
+                odpId: true,
+                comment: true,
+            },
+        });
+
+        const odps = await this.prisma.oDP.findMany({
+            where: { routerId },
+        });
+
+        const odpCables = await this.prisma.oDPCable.findMany({
+            where: { routerId },
+        });
+
+        return { users, odps, odpCables };
+    }
+
+    async getAllMapData(userId: string) {
+        const routers = await this.prisma.router.findMany({
+            where: { userId },
+            select: { id: true, name: true }
+        });
+        const routerIds = routers.map(r => r.id);
+
+        const [users, odps, odpCables] = await Promise.all([
+            this.prisma.pPPUser.findMany({
+                where: { routerId: { in: routerIds }, latitude: { not: null } },
+                select: {
+                    id: true,
+                    secretName: true,
+                    latitude: true,
+                    longitude: true,
+                    isOnline: true,
+                    odpId: true,
+                    comment: true,
+                    routerId: true, // Include routerId for context
+                }
+            }),
+            this.prisma.oDP.findMany({ where: { routerId: { in: routerIds } } }),
+            this.prisma.oDPCable.findMany({ where: { routerId: { in: routerIds } } })
+        ]);
+
+        return { users, odps, odpCables, routers };
+    }
+
+    async updateUserCoordinates(routerId: string, secretName: string, userId: string, data: { latitude: number | null; longitude: number | null; odpId?: string | null }) {
+        await this.getRouter(routerId, userId);
+
+        const updated = await this.prisma.pPPUser.update({
+            where: {
+                routerId_secretName: { routerId, secretName },
+            },
+            data: {
+                latitude: data.latitude,
+                longitude: data.longitude,
+                odpId: data.odpId ?? undefined,
+            },
+            select: {
+                id: true,
+                secretName: true,
+                latitude: true,
+                longitude: true,
+                odpId: true,
+            },
+        });
+        return updated;
+    }
+
+    async getODPs(routerId: string, userId: string) {
+        await this.getRouter(routerId, userId);
+        return this.prisma.oDP.findMany({
+            where: { routerId },
+            orderBy: { name: 'asc' },
+        });
+    }
+
+    async createODP(routerId: string, userId: string, data: { name: string; latitude: number; longitude: number }) {
+        await this.getRouter(routerId, userId);
+        return this.prisma.oDP.create({
+            data: {
+                routerId,
+                name: data.name,
+                latitude: data.latitude,
+                longitude: data.longitude,
+            },
+        });
+    }
+
+    async updateODP(routerId: string, odpId: string, userId: string, data: { name?: string; latitude?: number; longitude?: number }) {
+        await this.getRouter(routerId, userId);
+        return this.prisma.oDP.update({
+            where: { id: odpId },
+            data,
+        });
+    }
+
+    async deleteODP(routerId: string, odpId: string, userId: string) {
+        await this.getRouter(routerId, userId);
+        return this.prisma.oDP.delete({
+            where: { id: odpId },
+        });
+    }
+
+    // ==================== ODP Cable Methods ====================
+
+    async createODPCable(routerId: string, userId: string, data: { fromOdpId: string; toOdpId: string; label?: string; waypoints?: [number, number][] }) {
+        await this.getRouter(routerId, userId);
+        return this.prisma.oDPCable.create({
+            data: {
+                routerId,
+                fromOdpId: data.fromOdpId,
+                toOdpId: data.toOdpId,
+                label: data.label || null,
+                waypoints: data.waypoints ? JSON.stringify(data.waypoints) : null,
+            },
+        });
+    }
+
+    async updateODPCableWaypoints(routerId: string, cableId: string, userId: string, waypoints: [number, number][]) {
+        await this.getRouter(routerId, userId);
+        return this.prisma.oDPCable.update({
+            where: { id: cableId },
+            data: {
+                waypoints: waypoints.length > 0 ? JSON.stringify(waypoints) : null,
+            },
+        });
+    }
+
+    async deleteODPCable(routerId: string, cableId: string, userId: string) {
+        await this.getRouter(routerId, userId);
+        return this.prisma.oDPCable.delete({
+            where: { id: cableId },
+        });
     }
 }
