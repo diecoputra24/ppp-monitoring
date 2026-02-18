@@ -65,18 +65,15 @@ export const useRouterStore = create<RouterState>((set, get) => ({
     updateRouter: async (id, data) => {
         set({ loading: true, error: null });
         try {
-            await routerApi.update(id, data);
-            await get().fetchRouters();
+            const response = await routerApi.update(id, data);
 
-            // Sync selectedRouter with the freshly fetched data
-            const { selectedRouter, routers } = get();
+            // Immediately update selectedRouter from API response (most reliable)
+            const { selectedRouter } = get();
             if (selectedRouter && selectedRouter.id === id) {
-                const freshRouter = routers.find(r => r.id === id);
-                if (freshRouter) {
-                    set({ selectedRouter: freshRouter });
-                }
+                set({ selectedRouter: response.data });
             }
 
+            await get().fetchRouters();
             toast.success('Router berhasil diperbarui');
         } catch (error) {
             set({ error: 'Failed to update router', loading: false });
