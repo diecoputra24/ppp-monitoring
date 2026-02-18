@@ -197,7 +197,7 @@ export function PPPMapModal({ isOpen, onClose, routerId, pppUsers = [] }: PPPMap
 
     // ==================== ODP CRUD ====================
     const handleCreateODP = async () => {
-        if (!clickLatLng || !odpName.trim()) return;
+        if (!clickLatLng || !odpName.trim() || !routerId) return;
         setSavingODP(true);
         try {
             await routerApi.createODP(routerId, {
@@ -217,6 +217,7 @@ export function PPPMapModal({ isOpen, onClose, routerId, pppUsers = [] }: PPPMap
     };
 
     const handleDeleteODP = async (odpId: string, name: string) => {
+        if (!routerId) return;
         try {
             await routerApi.deleteODP(routerId, odpId);
             toast.success(`ODP "${name}" berhasil dihapus`);
@@ -229,7 +230,7 @@ export function PPPMapModal({ isOpen, onClose, routerId, pppUsers = [] }: PPPMap
 
     // ==================== CABLE DRAW (create new cable with waypoints) ====================
     const handleODPClickForCable = async (odpId: string) => {
-        if (mapMode !== 'draw-cable') return;
+        if (mapMode !== 'draw-cable' || !routerId) return;
 
         if (!cableFromOdpId) {
             setCableFromOdpId(odpId);
@@ -276,7 +277,7 @@ export function PPPMapModal({ isOpen, onClose, routerId, pppUsers = [] }: PPPMap
     };
 
     const handleSaveEditWaypoints = async () => {
-        if (!editingCableId) return;
+        if (!editingCableId || !routerId) return;
         setSavingEditWaypoints(true);
         try {
             await routerApi.updateODPCableWaypoints(routerId, editingCableId, editWaypoints);
@@ -293,6 +294,7 @@ export function PPPMapModal({ isOpen, onClose, routerId, pppUsers = [] }: PPPMap
     };
 
     const handleDeleteODPCable = async (cableId: string) => {
+        if (!routerId) return;
         try {
             await routerApi.deleteODPCable(routerId, cableId);
             toast.success('Kabel berhasil dihapus');
