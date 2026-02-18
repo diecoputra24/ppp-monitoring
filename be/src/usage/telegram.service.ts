@@ -95,7 +95,7 @@ export class TelegramService {
                 chat_id: chatId,
                 text: text,
                 parse_mode: 'HTML',
-            });
+            }, { timeout: 10000 }); // 10s timeout
         } catch (error: any) {
             const errorMsg = error.response?.data
                 ? JSON.stringify(error.response.data)

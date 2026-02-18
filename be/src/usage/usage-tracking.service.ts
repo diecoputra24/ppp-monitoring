@@ -53,20 +53,45 @@ export class UsageTrackingService implements OnModuleInit {
     }
 
     private isSyncing = false;
+    private lastSyncStart: number = 0;
+    private readonly SYNC_TIMEOUT_MS = 120000; // 2 minutes max for a sync cycle
 
     @Cron(CronExpression.EVERY_30_SECONDS)
     async handleUsageSync() {
+        const now = Date.now();
+
+        // Self-Healing: Check if previous sync is stuck
         if (this.isSyncing) {
-            console.warn('[SCHEDULER] Sync skipped: Previous sync cycle still running.');
-            return;
+            if (now - this.lastSyncStart > this.SYNC_TIMEOUT_MS) {
+                console.error(`[SCHEDULER] CRITICAL: Sync process stuck for ${(now - this.lastSyncStart) / 1000}s. Forcing reset.`);
+                this.isSyncing = false; // Force release lock
+            } else {
+                console.warn('[SCHEDULER] Sync skipped: Previous sync cycle still running.');
+                return;
+            }
         }
 
         this.isSyncing = true;
+        this.lastSyncStart = now;
+
         try {
-            await this.syncAllRouters();
+            // Race condition: If sync takes too long, we want to know, but we rely on the next cycle to Force Reset.
+            // Alternatively, we can use Promise.race to timeout locally, but that doesn't kill the underlying hanging promise.
+            // Best approach: Just run it, and let the Self-Healing logic above handle "Stuck" states in the next tick.
+
+            // However, wrapping in a timeout ensures we at least get an error log in this cycle.
+            await Promise.race([
+                this.syncAllRouters(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Sync Execution Timeout')), 90000))
+            ]);
+
         } catch (error) {
-            console.error('[SCHEDULER] Error during scheduled sync:', error);
+            console.error('[SCHEDULER] Error during scheduled sync:', error.message);
         } finally {
+            // Only release lock if we finished within timeout. 
+            // If we timed out, we might want to leave it "stuck" so the next cycle forces a hard reset?
+            // No, standard `finally` is safer. If the underlying process is TRULY hung (e.g. native code), 
+            // this finally block might not even run. That's why the Check at the top is crucial.
             this.isSyncing = false;
         }
     }
