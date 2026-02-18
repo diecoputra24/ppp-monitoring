@@ -20,7 +20,7 @@ interface RouterState {
     syncRouter: (id: string) => Promise<void>;
     fetchPPPUsers: (id: string, isBackground?: boolean) => Promise<void>;
     updatePPPComment: (userName: string, comment: string, pppId?: string) => Promise<void>;
-    toggleIsolateUser: (userName: string, pppId?: string) => Promise<void>;
+    toggleIsolateUser: (userName: string, pppId?: string, targetProfile?: string) => Promise<void>;
     createPPPUser: (data: any) => Promise<void>;
     getRouterProfiles: (id: string) => Promise<string[]>;
     clearError: () => void;
@@ -155,13 +155,13 @@ export const useRouterStore = create<RouterState>((set, get) => ({
         }
     },
 
-    toggleIsolateUser: async (userName: string, pppId?: string) => {
+    toggleIsolateUser: async (userName: string, pppId?: string, targetProfile?: string) => {
         const { selectedRouter, fetchPPPUsers } = get();
         if (!selectedRouter) return;
 
         set({ loading: true, error: null });
         try {
-            const response = await routerApi.toggleIsolate(selectedRouter.id, userName, pppId);
+            const response = await routerApi.toggleIsolate(selectedRouter.id, userName, pppId, targetProfile);
             await fetchPPPUsers(selectedRouter.id);
             set({ loading: false });
 

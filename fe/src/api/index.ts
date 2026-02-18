@@ -89,8 +89,8 @@ export const routerApi = {
     getPPPUsers: (id: string) => api.get<PPPUser[]>(`/routers/${id}/ppp`),
     updatePPPComment: (routerId: string, userName: string, comment: string, pppId?: string) =>
         api.post(`/routers/${routerId}/ppp/${userName}/comment`, { comment, pppId }),
-    toggleIsolate: (routerId: string, userName: string, pppId?: string) =>
-        api.post(`/routers/${routerId}/ppp/${userName}/isolate`, { pppId }),
+    toggleIsolate: (routerId: string, userName: string, pppId?: string, targetProfile?: string) =>
+        api.post(`/routers/${routerId}/ppp/${userName}/isolate`, { pppId, targetProfile }),
     createPPPUser: (routerId: string, data: any) =>
         api.post(`/routers/${routerId}/ppp`, data),
 };

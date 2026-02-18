@@ -206,6 +206,7 @@ export class RouterService {
                 storedRxBytes: accumulatedRx.toString(),
                 totalTxBytes: totalTx.toString(),
                 totalRxBytes: totalRx.toString(),
+                originalProfile: storedUser?.originalProfile,
             };
         });
     }
@@ -240,7 +241,7 @@ export class RouterService {
         return success;
     }
 
-    async toggleIsolateUser(routerId: string, secretName: string, userId: string, pppId?: string) {
+    async toggleIsolateUser(routerId: string, secretName: string, userId: string, pppId?: string, targetProfileOverride?: string) {
         const router = await this.getRouter(routerId, userId);
 
         if (!router.isolirProfile) {
@@ -283,7 +284,10 @@ export class RouterService {
 
             if (isIsolated) {
                 action = 'unisolate';
-                const targetProfile = dbUser?.originalProfile || 'default';
+                // Use override if valid, else DB original, else default
+                const targetProfile = (targetProfileOverride && targetProfileOverride.trim() !== '')
+                    ? targetProfileOverride
+                    : (dbUser?.originalProfile || 'default');
 
                 console.log(`[UNISOLATE] restoring ${secretName} to ${targetProfile}`);
                 await api.menu('/ppp/secret').where('name', secretName).set({ profile: targetProfile });

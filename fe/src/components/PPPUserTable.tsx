@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, RefreshCw, Activity, Globe, MessageSquare, Lock, Unlock, ExternalLink, ArrowUpDown, ChevronUp, ChevronDown, UserPlus } from 'lucide-react';
+import { Search, RefreshCw, Activity, Globe, MessageSquare, Lock, Unlock, ExternalLink, ArrowUpDown, ChevronUp, ChevronDown, UserPlus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useRouterStore } from '../store/routerStore';
 import { formatBytes, type PPPUser } from '../api';
 import { PPPUserCommentModal } from './PPPUserCommentModal';
@@ -23,6 +23,10 @@ export function PPPUserTable() {
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'online' | 'offline'>('all');
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(50);
 
     // Comment modal state
     const [commentModalOpen, setCommentModalOpen] = useState(false);
@@ -50,9 +54,9 @@ export function PPPUserTable() {
         setIsolateModalOpen(true);
     };
 
-    const handleConfirmIsolate = async () => {
+    const handleConfirmIsolate = async (targetProfile?: string) => {
         if (selectedUser) {
-            await toggleIsolateUser(selectedUser.name);
+            await toggleIsolateUser(selectedUser.name, undefined, targetProfile);
             setIsolateModalOpen(false);
         }
     };
@@ -104,7 +108,14 @@ export function PPPUserTable() {
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 992);
 
     useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth <= 992);
+        const handleResize = () => {
+            const mobile = window.innerWidth <= 992;
+            setIsMobile(mobile);
+            setItemsPerPage(mobile ? 20 : 50);
+        };
+        // Initial set
+        handleResize();
+
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
@@ -164,6 +175,31 @@ export function PPPUserTable() {
 
         return result;
     }, [pppUsers, debouncedSearchTerm, statusFilter, sortConfig]);
+
+    // Reset page on filter change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [debouncedSearchTerm, statusFilter]);
+
+    // Pagination Calculation
+    const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+
+    useEffect(() => {
+        if (currentPage > totalPages && totalPages > 0) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
+    const paginatedUsers = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredUsers.slice(start, start + itemsPerPage);
+    }, [filteredUsers, currentPage, itemsPerPage]);
+
+    const goToPage = (page: number) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+        }
+    };
 
     // 2. Optimized stats calculation (single pass)
     const stats = useMemo(() => {
@@ -301,13 +337,13 @@ export function PPPUserTable() {
                             All {stats.total}
                         </button>
                         <button
-                            className={`filter-tab ${statusFilter === 'online' ? 'active' : ''}`}
+                            className={`filter-tab online ${statusFilter === 'online' ? 'active' : ''}`}
                             onClick={() => setStatusFilter('online')}
                         >
                             Online {stats.online}
                         </button>
                         <button
-                            className={`filter-tab ${statusFilter === 'offline' ? 'active' : ''}`}
+                            className={`filter-tab offline ${statusFilter === 'offline' ? 'active' : ''}`}
                             onClick={() => setStatusFilter('offline')}
                         >
                             Offline {stats.offline}
@@ -317,6 +353,30 @@ export function PPPUserTable() {
             </div>
 
             <div className="table-content-area">
+                {/* Pagination Info Top (Optional, maybe just keep bottom) */}
+                <div style={{ padding: '8px 20px', fontSize: '12px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Showing {filteredUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredUsers.length)} of {filteredUsers.length} users</span>
+                    {filteredUsers.length > itemsPerPage && (
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                                onClick={() => goToPage(currentPage - 1)}
+                                disabled={currentPage === 1}
+                                style={{ background: 'none', border: 'none', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', opacity: currentPage === 1 ? 0.5 : 1, color: 'var(--text-primary)' }}
+                            >
+                                <ChevronLeft size={14} />
+                            </button>
+                            <span style={{ fontWeight: 600 }}>{currentPage} / {totalPages}</span>
+                            <button
+                                onClick={() => goToPage(currentPage + 1)}
+                                disabled={currentPage === totalPages}
+                                style={{ background: 'none', border: 'none', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', opacity: currentPage === totalPages ? 0.5 : 1, color: 'var(--text-primary)' }}
+                            >
+                                <ChevronRight size={14} />
+                            </button>
+                        </div>
+                    )}
+                </div>
+
                 {loading ? (
                     <div className="loading-state-container">
                         <div className="spinner-circle"></div>
@@ -332,7 +392,7 @@ export function PPPUserTable() {
                     </div>
                 ) : isMobile ? (
                     <div className="user-cards-mobile">
-                        {filteredUsers.map((user) => (
+                        {paginatedUsers.map((user) => (
                             <div key={`card-${user.name}`} className="mobile-user-card">
                                 <div className="m-card-top">
                                     <div className="m-user-info" style={{ flex: 1 }}>
@@ -444,7 +504,7 @@ export function PPPUserTable() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredUsers.map((user) => (
+                                {paginatedUsers.map((user) => (
                                     <tr key={user.name}>
                                         <td>
                                             <span className={`status-badge ${user.isOnline ? 'online' : ''}`}>
@@ -516,6 +576,54 @@ export function PPPUserTable() {
                 )}
             </div>
 
+            {/* Pagination Controls Bottom */}
+            {filteredUsers.length > 0 && !loading && (
+                <div className="pagination-controls">
+                    <div className="pagination-info">
+                        Showing <span className="text-highlight">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-highlight">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of <span className="text-highlight">{filteredUsers.length}</span> entries
+                    </div>
+                    <div className="pagination-buttons">
+                        <button
+                            className="p-btn"
+                            onClick={() => goToPage(1)}
+                            disabled={currentPage === 1}
+                            title="First Page"
+                        >
+                            <ChevronsLeft size={16} />
+                        </button>
+                        <button
+                            className="p-btn"
+                            onClick={() => goToPage(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            title="Previous Page"
+                        >
+                            <ChevronLeft size={16} />
+                        </button>
+
+                        <div className="page-indicator">
+                            Page {currentPage} of {totalPages}
+                        </div>
+
+                        <button
+                            className="p-btn"
+                            onClick={() => goToPage(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            title="Next Page"
+                        >
+                            <ChevronRight size={16} />
+                        </button>
+                        <button
+                            className="p-btn"
+                            onClick={() => goToPage(totalPages)}
+                            disabled={currentPage === totalPages}
+                            title="Last Page"
+                        >
+                            <ChevronsRight size={16} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <style>{`
                 .glass-card { background: var(--bg-card); border: 1px solid var(--border-color); }
                 .table-header-custom { padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
@@ -541,7 +649,9 @@ export function PPPUserTable() {
                 .filter-tabs { display: flex; border: 1px solid var(--border-color); border-radius: 4px; overflow: hidden; }
                 .filter-tab { padding: 8px 15px; border: none; background: transparent; color: var(--text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; border-right: 1px solid var(--border-color); }
                 .filter-tab:last-child { border-right: none; }
-                .filter-tab.active { background: var(--accent-primary); color: white; }
+                .filter-tab.active { background: var(--accent-primary); color: white; border-color: var(--accent-primary); }
+                .filter-tab.online.active { background: var(--success); border-color: var(--success); }
+                .filter-tab.offline.active { background: var(--danger); border-color: var(--danger); }
 
                 .table-container { max-height: calc(100vh - 280px); overflow-y: auto; }
                 .table { border-collapse: separate; border-spacing: 0; }
@@ -665,6 +775,55 @@ export function PPPUserTable() {
                     border-top-color: var(--accent-primary);
                     animation: spin 1s ease-in-out infinite;
                     margin-bottom: 12px;
+                }
+
+                /* Pagination Styles */
+                .pagination-controls {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 15px 20px;
+                    border-top: 1px solid var(--border-color);
+                    background: var(--bg-secondary);
+                    flex-wrap: wrap;
+                    gap: 10px;
+                }
+                .pagination-info { font-size: 13px; color: var(--text-muted); }
+                .text-highlight { color: var(--text-primary); font-weight: 600; }
+                .pagination-buttons { display: flex; align-items: center; gap: 8px; }
+                .p-btn {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 6px;
+                    background: var(--bg-tertiary);
+                    border: 1px solid var(--border-color);
+                    color: var(--text-secondary);
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .p-btn:hover:not(:disabled) {
+                    background: var(--accent-primary);
+                    color: white;
+                    border-color: var(--accent-primary);
+                }
+                .p-btn:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+                .page-indicator {
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: var(--text-secondary);
+                    min-width: 80px;
+                    text-align: center;
+                }
+
+                @media (max-width: 600px) {
+                    .pagination-controls { justify-content: center; }
+                    .pagination-info { width: 100%; text-align: center; margin-bottom: 5px; }
                 }
             `}</style>
 

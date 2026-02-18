@@ -79,9 +79,10 @@ export class RouterController {
         @Param('id') id: string,
         @Param('name') name: string,
         @CurrentUser() user: AuthUserProfile,
-        @Body('pppId') pppId?: string
+        @Body('pppId') pppId?: string,
+        @Body('targetProfile') targetProfile?: string
     ) {
-        return this.routerService.toggleIsolateUser(id, name, user.id, pppId);
+        return this.routerService.toggleIsolateUser(id, name, user.id, pppId, targetProfile);
     }
 
     @Post(':id/ppp')
