@@ -66,6 +66,14 @@ export const useRouterStore = create<RouterState>((set, get) => ({
         set({ loading: true, error: null });
         try {
             await routerApi.update(id, data);
+
+            // If the updated router is the currently selected one, update it in state too
+            const { selectedRouter } = get();
+            if (selectedRouter && selectedRouter.id === id) {
+                // Merge existing selectedRouter with new data to keep UI consistent immediately
+                set({ selectedRouter: { ...selectedRouter, ...data } });
+            }
+
             await get().fetchRouters();
             toast.success('Router berhasil diperbarui');
         } catch (error) {

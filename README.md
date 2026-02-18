@@ -1,79 +1,66 @@
 # MikroTik PPP Monitoring
 
----
+## Tech Stack
 
-## 📋 Persiapan (Prerequisites)
+### Backend
+*   **Framework**: NestJS (Node.js)
+*   **Database**: SQLite + Prisma ORM
+*   **API**: REST, MikroTik RouterOS Client
 
-Pastikan sudah terinstall:
--   **Node.js** (Download di https://nodejs.org/)
--   **Git**
+### Frontend
+*   **Framework**: React + Vite
+*   **State Management**: Zustand
+*   **UI**: Vanilla CSS + Glassmorphism
 
----
+## Features
 
-## ✨ Fitur Utama
+*   **Multi-Router Management**: Tambahkan banyak router MikroTik.
+*   **Real-time PPP Monitoring**: Status Online/Offline, IP Address, Uptime.
+*   **Bandwidth Usage**: Tracking upload/download per sesi & akumulasi total history.
+*   **User Isolation (Isolir)**:
+    *   One-Click Isolate (Gembok).
+    *   Auto-Disconnect user saat diisolir.
+    *   Smart Restore ke profile asli.
+*   **Notifikasi Telegram**:
+    *   Laporan Login/Logout.
+    *   Status harian/berkala.
+    *   Indikator user isolir (🔒).
+*   **Self-Healing**: Auto-recover jika koneksi ke router timeout.
+*   **Search & Filter**: Pencarian cepat tanpa reload.
 
--   **Monitoring PPP Mikrotik**: Terintegrasi langsung via API.
--   **Real-time Auto Sync**: Data sinkronisasi otomatis setiap 30 detik.
+## Cara Install
 
-## ⚠️ Catatan Penting & Known Bugs
+### 1. Clone Repository
+```bash
+git clone https://github.com/diecoputra24/ppp-monitoring.git
+cd mikrotik-monitoring
+```
 
-1.  **Tombol Isolir**:
-    -   Sebelum menggunakan tombol isolir, **wajib** mengisi nama profil isolir terlebih dahulu di pengaturan.
-    -   Jika baru saja mengisi/mengupdate profil isolir, **silakan refresh halaman** browser Anda agar perubahan terbaca.
-2.  **Telegram**:
-    -   Bot akan mengirimkan laporan **HANYA** jika ada aktivitas user Login atau Logout.
-    -   Jika tidak ada perubahan status user, bot tidak akan mengirim pesan apapun (Silent).
-    -   Pastikan Token dan Chat ID sudah benar.
-
----
-
-## 🚀 1. Setup Backend
-
-Buka terminal baru (Terminal A), lalu jalankan:
-
+### 2. Setup Backend
 ```bash
 cd be
 npm install
-
-# Copy file env jika belum ada
-cp .env.example .env
-
-# Generate BETTER_AUTH_SECRET (Wajib)
-# Jalankan command ini di terminal untuk mendapatkan random string:
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-# Copy output string tersebut dan masukkan ke dalam file .env pada variabel BETTER_AUTH_SECRET=...
-
-# Setup Database
+npx prisma generate
 npx prisma db push
-
-# Jalankan Backend
-npm run dev
+npm run start:dev
 ```
+_(Port: 3008)_
 
-*Backend akan berjalan di port `3008`.*
-
----
-
-## 🌐 2. Setup Frontend
-
-Buka terminal **baru** lainnya (Terminal B), jangan matikan terminal backend.
-
+### 3. Setup Frontend
+Buka terminal baru:
 ```bash
 cd fe
 npm install
-
-# Jalankan Frontend
 npm run dev
 ```
+_(Port: 5173)_
 
-*Frontend akan berjalan di port `8081`.*
+## Konfigurasi
 
----
+1.  Buka `http://localhost:5173`.
+2.  Add Router -> Masukkan IP, User, Pass MikroTik.
+3.  Pastikan API service di MikroTik aktif (`/ip service enable api`).
+4.  (Opsional) Isi Profile Isolir & Telegram Token di menu edit router.
 
-## ✅ Cara Pakai
-
-1.  Pastikan kedua terminal (Backend & Frontend) tetap berjalan.
-2.  Buka browser dan akses: **http://localhost:8081**
-3.  Login dan gunakan aplikasi.
-
-Jika ingin mematikan aplikasi, cukup tekan `Ctrl + C` di masing-masing terminal.
+## License
+MIT
