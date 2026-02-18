@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Plus, Trash2, MapPin, Loader2, Cable, GripVertical } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMapEvents, useMap, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { routerApi } from '../api';
@@ -519,8 +519,22 @@ export function PPPMapModal({ isOpen, onClose, routerId, pppUsers = [] }: PPPMap
                             <Loader2 size={24} className="spinning" style={{ marginRight: '10px' }} /> Memuat peta...
                         </div>
                     ) : (
+
                         <MapContainer center={defaultCenter} zoom={15} style={{ height: '100%', width: '100%', borderRadius: '0 0 8px 8px' }}>
-                            <TileLayer attribution='&copy; OSM' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                            <LayersControl position="topright">
+                                <LayersControl.BaseLayer checked name="Street">
+                                    <TileLayer
+                                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                    />
+                                </LayersControl.BaseLayer>
+                                <LayersControl.BaseLayer name="Satellite">
+                                    <TileLayer
+                                        attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+                                        url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                    />
+                                </LayersControl.BaseLayer>
+                            </LayersControl>
                             <MapClickHandler />
                             {allPositions.length > 1 && <FitBounds markers={allPositions} />}
 
@@ -822,7 +836,7 @@ export function PPPMapModal({ isOpen, onClose, routerId, pppUsers = [] }: PPPMap
                 @keyframes cable-flow { to { stroke-dashoffset: -32; } }
                 .leaflet-container { font-family: inherit; }
             `}</style>
-        </div>,
+        </div >,
         document.body
     );
 }
