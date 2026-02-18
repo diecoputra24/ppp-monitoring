@@ -451,17 +451,36 @@ export function PPPMapModal({ isOpen, onClose, routerId, pppUsers = [] }: PPPMap
                 {/* ==================== INSTRUCTION BARS ==================== */}
                 {mapMode === 'add-odp' && (
                     <div className="form-bar">
-                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                            {clickLatLng ? `📍 ${clickLatLng[0].toFixed(6)}, ${clickLatLng[1].toFixed(6)}` : '👆 Klik peta untuk pilih lokasi ODP'}
-                        </span>
-                        <input
-                            type="text" className="input" placeholder="Nama ODP (misal: ODP-01)"
-                            value={odpName} onChange={e => setOdpName(e.target.value)}
-                            style={{ width: '200px', padding: '6px 10px', fontSize: '12px' }}
-                        />
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <input
+                                type="text" className="input" placeholder="Nama ODP"
+                                value={odpName} onChange={e => setOdpName(e.target.value)}
+                                style={{ width: '140px', padding: '6px 10px', fontSize: '12px' }}
+                            />
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                                <input
+                                    type="number" className="input" placeholder="Lat"
+                                    value={clickLatLng ? clickLatLng[0] : ''}
+                                    onChange={e => {
+                                        const val = parseFloat(e.target.value);
+                                        if (!isNaN(val)) setClickLatLng(prev => [val, prev ? prev[1] : 0]);
+                                    }}
+                                    style={{ width: '90px', padding: '6px 10px', fontSize: '12px' }}
+                                />
+                                <input
+                                    type="number" className="input" placeholder="Lng"
+                                    value={clickLatLng ? clickLatLng[1] : ''}
+                                    onChange={e => {
+                                        const val = parseFloat(e.target.value);
+                                        if (!isNaN(val)) setClickLatLng(prev => [prev ? prev[0] : 0, val]);
+                                    }}
+                                    style={{ width: '90px', padding: '6px 10px', fontSize: '12px' }}
+                                />
+                            </div>
+                        </div>
                         <button className="btn btn-primary btn-sm" disabled={!clickLatLng || !odpName.trim() || savingODP}
                             onClick={handleCreateODP} style={{ fontSize: '12px' }}>
-                            {savingODP ? <Loader2 size={14} className="spinning" /> : 'Simpan ODP'}
+                            {savingODP ? <Loader2 size={14} className="spinning" /> : 'Simpan'}
                         </button>
                     </div>
                 )}

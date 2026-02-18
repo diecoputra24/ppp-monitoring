@@ -165,9 +165,30 @@ export function PPPCoordinateModal({ isOpen, onClose, routerId, user, allUsers, 
 
                 <div className="coord-form-bar">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', minWidth: '180px' }}>
-                            {selectedPos ? `📍 ${selectedPos[0].toFixed(6)}, ${selectedPos[1].toFixed(6)}` : '👆 Klik peta untuk set lokasi'}
-                        </span>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                            <input
+                                type="number"
+                                className="input"
+                                placeholder="Lat"
+                                value={selectedPos ? selectedPos[0] : ''}
+                                onChange={e => {
+                                    const val = parseFloat(e.target.value);
+                                    if (!isNaN(val)) setSelectedPos(prev => [val, prev ? prev[1] : 0]);
+                                }}
+                                style={{ width: '100px', padding: '6px 10px', fontSize: '12px' }}
+                            />
+                            <input
+                                type="number"
+                                className="input"
+                                placeholder="Lng"
+                                value={selectedPos ? selectedPos[1] : ''}
+                                onChange={e => {
+                                    const val = parseFloat(e.target.value);
+                                    if (!isNaN(val)) setSelectedPos(prev => [prev ? prev[0] : 0, val]);
+                                }}
+                                style={{ width: '100px', padding: '6px 10px', fontSize: '12px' }}
+                            />
+                        </div>
                         <select
                             className="input"
                             value={selectedOdp}
