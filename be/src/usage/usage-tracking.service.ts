@@ -267,7 +267,8 @@ export class UsageTrackingService implements OnModuleInit {
                         currentOnlineNames.add(user.name);
                         // NOTIFIKASI LOGIN
                         if (!this.onlineUsersCache.has(cacheKey)) {
-                            loginList.push(user.name);
+                            const isIsolated = user.profile === router.isolirProfile;
+                            loginList.push(isIsolated ? `${user.name} 🔒` : user.name);
                         }
                         // Update RAM cache
                         this.onlineUsersCache.set(cacheKey, {
@@ -298,7 +299,12 @@ export class UsageTrackingService implements OnModuleInit {
             // Cleanup RAM cache for disconnected users
             for (const [cacheKey, cachedUser] of this.onlineUsersCache.entries()) {
                 if (cachedUser.routerId === router.id && !currentOnlineNames.has(cachedUser.secretName)) {
-                    logoutList.push(cachedUser.secretName);
+                    // Check if user is isolated (by looking up in latest users list)
+                    const latestUser = users.find(u => u.name === cachedUser.secretName);
+                    const isIsolated = latestUser?.profile === router.isolirProfile;
+
+                    logoutList.push(isIsolated ? `${cachedUser.secretName} 🔒` : cachedUser.secretName);
+
                     this.recordSessionHistory(cachedUser).catch(e => console.error(e));
                     this.onlineUsersCache.delete(cacheKey);
                 }
@@ -310,7 +316,10 @@ export class UsageTrackingService implements OnModuleInit {
                 const totalSecrets = users.length;
                 const offlineList = users
                     .filter(u => !u.isOnline)
-                    .map(u => u.name)
+                    .map(u => {
+                        const isIsolated = u.profile === router.isolirProfile;
+                        return isIsolated ? `${u.name} 🔒` : u.name;
+                    })
                     .sort();
 
                 await this.telegramService.sendSyncReport(
